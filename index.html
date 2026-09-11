@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>誤答理由分析</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="誤答理由分析">
+<style>
+  :root{
+    --bg:#f4f5f7;
+    --card:#ffffff;
+    --ink:#22262b;
+    --sub:#6b7280;
+    --line:#e5e7eb;
+    --eng:#2563eb;
+    --eng-bg:#eef4ff;
+    --kok:#b45309;
+    --kok-bg:#fef6ea;
+    --accent:#16a34a;
+    --danger:#dc2626;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    padding-bottom:90px;
+  }
+  header{
+    position:sticky; top:0; z-index:20;
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    padding:14px 16px 0 16px;
+  }
+  h1{
+    font-size:17px; margin:0 0 10px 0; font-weight:700;
+  }
+  .tabs{
+    display:flex; gap:6px;
+  }
+  .tabs button{
+    flex:1;
+    padding:10px 6px;
+    border:none;
+    background:none;
+    font-size:14px;
+    font-weight:600;
+    color:var(--sub);
+    border-bottom:3px solid transparent;
+    cursor:pointer;
+  }
+  .tabs button.active{
+    color:var(--ink);
+    border-bottom-color:var(--accent);
+  }
+  main{ padding:14px; max-width:720px; margin:0 auto; }
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  /* --- subject switch --- */
+  .subject-switch{
+    display:flex; gap:8px; margin-bottom:14px;
+  }
+  .subject-switch button{
+    flex:1;
+    padding:10px;
+    border-radius:10px;
+    border:2px solid var(--line);
+    background:var(--card);
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    color:var(--sub);
+  }
+  .subject-switch button.active.eng{ border-color:var(--eng); background:var(--eng-bg); color:var(--eng);}
+  .subject-switch button.active.kok{ border-color:var(--kok); background:var(--kok-bg); color:var(--kok);}
+
+  .meta-card{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:12px 14px;
+    margin-bottom:14px;
+    border:1px solid var(--line);
+    display:flex; gap:10px; flex-wrap:wrap;
+  }
+  .meta-card label{
+    font-size:11px; color:var(--sub); display:block; margin-bottom:3px;
+  }
+  .meta-card input[type=date], .meta-card input[type=text]{
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:7px 8px;
+    font-size:14px;
+    width:100%;
+  }
+  .meta-card .field{ flex:1; min-width:120px; }
+
+  .progress-bar{
+    font-size:12px; color:var(--sub); margin-bottom:10px;
+  }
+
+  .category{
+    background:var(--card);
+    border-radius:var(--radius);
+    margin-bottom:10px;
+    border:1px solid var(--line);
+    border-left:5px solid var(--line);
+    overflow:hidden;
+  }
+  .cat-dot{
+    display:inline-block;
+    width:10px; height:10px;
+    border-radius:50%;
+    margin-right:7px;
+    flex-shrink:0;
+  }
+  .category-head{
+    padding:12px 14px;
+    display:flex; justify-content:space-between; align-items:center;
+    cursor:pointer;
+  }
+  .category-title{ font-size:14px; font-weight:700; display:inline-flex; align-items:center; }
+  .category-count{
+    font-size:11px;
+    background:var(--bg);
+    color:var(--sub);
+    border-radius:20px;
+    padding:2px 9px;
+    margin-left:8px;
+  }
+  .category-count.has{
+    background:var(--accent);
+    color:#fff;
+  }
+  .chevron{ font-size:12px; color:var(--sub); transition:transform .15s; }
+  .category.open .chevron{ transform:rotate(90deg); }
+  .category-body{
+    display:none;
+    padding:0 14px 12px 14px;
+    border-top:1px solid var(--line);
+  }
+  .category.open .category-body{ display:block; }
+
+  .item{
+    display:flex; align-items:flex-start; gap:10px;
+    padding:9px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .item:last-of-type{ border-bottom:none; }
+  .item input[type=checkbox]{
+    width:19px; height:19px; margin-top:2px; flex-shrink:0; accent-color:var(--accent);
+  }
+  .item label{
+    font-size:14.5px; line-height:1.4; flex:1; cursor:pointer;
+  }
+  .item-awa{
+    display:none;
+    margin:2px 0 10px 29px;
+  }
+  .item-awa.show{ display:block; }
+  .item-awa textarea{
+    width:100%;
+    border:1px solid #cfe8ec;
+    border-radius:8px;
+    padding:7px 9px;
+    font-size:13px;
+    background:#f0f9fb;
+    resize:vertical;
+    min-height:40px;
+    font-family:inherit;
+  }
+
+  .add-item-row{
+    display:flex; gap:6px; padding-top:10px; margin-top:4px;
+  }
+  .add-item-row input{
+    flex:1;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:7px 9px;
+    font-size:13.5px;
+  }
+  .add-item-row button{
+    border:none;
+    background:var(--ink);
+    color:#fff;
+    border-radius:8px;
+    padding:0 14px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .custom-tag{
+    font-size:10px; color:#fff; background:#9ca3af; border-radius:5px; padding:1px 5px; margin-left:5px; vertical-align:middle;
+  }
+  .del-custom{
+    font-size:11px; color:var(--danger); cursor:pointer; margin-left:6px; flex-shrink:0;
+  }
+
+  .save-bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:20;
+    background:var(--card);
+    border-top:1px solid var(--line);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    display:flex; gap:10px; align-items:center;
+    max-width:720px; margin:0 auto;
+  }
+  .save-bar .summary{ font-size:12px; color:var(--sub); flex:1; }
+  .save-bar button{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:12px 18px;
+    font-size:14.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .save-bar button:disabled{ background:#9ca3af; }
+
+  /* --- review view --- */
+  .filter-row{
+    display:flex; gap:8px; margin-bottom:14px;
+  }
+  .filter-row select{
+    flex:1;
+    padding:8px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    font-size:13.5px;
+    background:var(--card);
+  }
+  .stat-card{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:14px;
+    margin-bottom:12px;
+    border:1px solid var(--line);
+  }
+  .stat-card h3{ margin:0 0 10px 0; font-size:13px; color:var(--sub); font-weight:700; }
+  .bar-row{ margin-bottom:9px; }
+  .bar-row .bar-label{
+    font-size:13px; display:flex; justify-content:space-between; margin-bottom:3px;
+  }
+  .bar-row .bar-label .cnt{ color:var(--sub); font-weight:700; }
+  .bar-track{
+    background:var(--bg); border-radius:6px; height:9px; overflow:hidden;
+  }
+  .bar-fill{
+    height:100%; border-radius:6px; background:var(--eng);
+  }
+  .bar-fill.kok{ background:var(--kok); }
+  .empty-msg{
+    text-align:center; color:var(--sub); font-size:13.5px; padding:40px 20px;
+  }
+
+  .notes-cat-group{
+    margin-bottom:14px;
+  }
+  .notes-cat-group:last-child{ margin-bottom:0; }
+  .notes-cat-head{
+    display:flex; align-items:center;
+    font-size:13px; font-weight:700;
+    margin-bottom:8px;
+    padding-bottom:5px;
+    border-bottom:1px solid var(--line);
+  }
+  .notes-item-group{
+    margin-bottom:10px;
+    padding-left:17px;
+  }
+  .notes-item-group:last-child{ margin-bottom:0; }
+  .notes-item-title{
+    font-size:13px; font-weight:600; margin-bottom:4px;
+  }
+  .notes-entry{
+    font-size:12.5px;
+    color:var(--ink);
+    background:var(--bg);
+    border-radius:8px;
+    padding:6px 9px;
+    margin-bottom:5px;
+  }
+  .notes-entry .notes-meta{
+    display:block; font-size:10.5px; color:var(--sub); margin-top:2px;
+  }
+
+  .record-card{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:12px 14px;
+    margin-bottom:10px;
+    border:1px solid var(--line);
+  }
+  .record-head{
+    display:flex; justify-content:space-between; align-items:center; cursor:pointer;
+  }
+  .record-head .rmeta{ font-size:13px; }
+  .record-head .rmeta .rsubj{
+    font-weight:700; font-size:11px; border-radius:5px; padding:1px 7px; margin-right:6px;
+  }
+  .rsubj.eng{ background:var(--eng-bg); color:var(--eng); }
+  .rsubj.kok{ background:var(--kok-bg); color:var(--kok); }
+  .record-head .rcount{ font-size:12px; color:var(--sub); }
+  .record-body{
+    display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);
+  }
+  .record-card.open .record-body{ display:block; }
+  .record-body ul{ margin:0; padding-left:18px; font-size:13.5px; }
+  .record-body li{ margin-bottom:5px; }
+  .record-body .note-text{ display:block; color:var(--sub); font-size:12px; margin-top:1px; }
+  .record-actions{
+    margin-top:10px; text-align:right;
+  }
+  .record-actions button{
+    background:none; border:none; color:var(--danger); font-size:12px; cursor:pointer;
+  }
+  .toast{
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+    background:#111827; color:#fff; padding:9px 18px; border-radius:20px;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:30;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🐱 誤答理由分析</h1>
+  <div class="tabs">
+    <button id="tabRecord" class="active">✅ 記録する</button>
+    <button id="tabReview">📊 振り返る</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ 記録する VIEW ============ -->
+  <div id="viewRecord" class="view active">
+    <div class="meta-card">
+      <div class="field" style="flex:100%;">
+        <label>生徒名</label>
+        <input type="text" id="studentName" list="studentNameList" placeholder="生徒名を入力（自分のスマホなら一度入力すればOK）">
+        <datalist id="studentNameList"></datalist>
+      </div>
+    </div>
+
+    <div class="subject-switch">
+      <button id="subjEngBtn" class="eng active">英語</button>
+      <button id="subjKokBtn" class="kok">国語</button>
+    </div>
+
+    <div class="meta-card">
+      <div class="field">
+        <label>日付</label>
+        <input type="date" id="recDate">
+      </div>
+      <div class="field" style="flex:2;">
+        <label>テスト名・回（任意）</label>
+        <input type="text" id="recLabel" placeholder="例：第3回模試、大問2など">
+      </div>
+    </div>
+
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div id="categoryList"></div>
+
+  </div>
+
+  <!-- ============ 振り返る VIEW ============ -->
+  <div id="viewReview" class="view">
+    <div class="filter-row">
+      <select id="filterStudent">
+        <option value="all">全生徒</option>
+      </select>
+    </div>
+    <div class="filter-row">
+      <select id="filterSubject">
+        <option value="all">全科目</option>
+        <option value="英語">英語のみ</option>
+        <option value="国語">国語のみ</option>
+      </select>
+      <select id="filterRange">
+        <option value="all">全期間</option>
+        <option value="30">直近30日</option>
+        <option value="7">直近7日</option>
+      </select>
+    </div>
+
+    <div class="stat-card">
+      <h3>弱点ランキング（チェック回数が多い項目 TOP10）</h3>
+      <div id="rankingList"></div>
+    </div>
+
+    <div class="stat-card">
+      <h3>カテゴリ別チェック回数</h3>
+      <div id="categoryStats"></div>
+    </div>
+
+    <div class="stat-card">
+      <h3>書いた対策のまとめ（カテゴリ・項目別）</h3>
+      <div id="notesSummary"></div>
+    </div>
+
+    <div class="stat-card" style="padding-bottom:4px;">
+      <h3>記録一覧（新しい順）</h3>
+      <div id="recordList"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="save-bar" id="saveBar">
+  <div class="summary" id="saveSummary">0件チェック中</div>
+  <button id="saveBtn">この記録を保存</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= データ定義 ================= */
+const DEFAULT_DATA = {
+  "英語": {
+    "①単語・語彙": ["単語の意味を知らなかった","多義語の別の意味を知らなかった","熟語を知らなかった","句動詞を知らなかった","派生語を知らなかった","品詞を取り違えた","同義語・類義語の区別ができなかった","反意語の意味を取り違えた","文脈上の意味を選べなかった","知っている単語なのに意味が出てこなかった","単語の意味を思い出すのに時間がかかった"],
+    "②文法・構文": ["文構造を把握できなかった","主語・動詞を特定できなかった","修飾関係を間違えた","関係詞の構造を理解できなかった","分詞構文を理解できなかった","不定詞・動名詞の役割を取り違えた","比較構文を読み違えた","否定表現を読み違えた","代名詞が何を指すか分からなかった","接続詞の働きを理解できなかった","時制を読み違えた","助動詞の意味を取り違えた","仮定・条件の意味を取り違えた"],
+    "③読解": ["一文の意味が取れなかった","一文は読めたが段落の意味が分からなかった","段落同士の関係を把握できなかった","話の展開を追えなかった","筆者・話者の主張を特定できなかった","具体例と主張を区別できなかった","原因と結果を取り違えた","時系列を取り違えた","比較関係を把握できなかった","対比に気づかなかった","指示語の内容を特定できなかった","要点を拾えなかった","必要な情報を検索できなかった","複数箇所の情報を統合できなかった","本文と選択肢を対応させられなかった","言い換えに気づかなかった","選択肢の細かい違いを見抜けなかった","本文にない内容を選んだ","本文と矛盾する内容を選んだ"],
+    "④設問処理": ["設問の意味を取り違えた","「正しいもの／誤っているもの」を逆に読んだ","問われている範囲を間違えた","必要な情報の場所を見つけられなかった","選択肢を最後まで比較しなかった","根拠を確認せず選んだ","先入観で選んだ","消去法がうまく使えなかった","2択まで絞った後に判断を誤った","複数情報を組み合わせる問題で失敗した","図表と本文を結び付けられなかった"],
+    "⑤情報・図表問題": ["図表のタイトルを確認しなかった","軸・単位を見落とした","数値を読み間違えた","増減を読み違えた","比較対象を間違えた","本文と図表の対応を間違えた","図表から必要な情報を抽出できなかった","複数の図表を関連付けられなかった"],
+    "⑥速度・時間": ["読むのが遅かった","単語で止まりすぎた","一文を何度も読み直した","前の文に戻りすぎた","設問に時間をかけすぎた","迷った問題を切れなかった","時間配分を誤った","後半で時間が足りなくなった","最後に急いで精度が落ちた"],
+    "⑦ケアレス": ["マークミス","問題番号の取り違え","選択肢の押し間違い","設問の読み飛ばし","「not」など否定語の見落とし","数字・固有名詞の見落とし","根拠のある箇所を読み違えた","正解を分かっていたのに別の選択肢を選んだ"]
+  },
+  "国語": {
+    "①現代文：語句・文章理解": ["語句の意味を知らなかった","語句の意味を文脈から判断できなかった","指示語を追えなかった","接続語の働きを理解できなかった","文と文の関係を把握できなかった","段落の役割を理解できなかった","対比を見抜けなかった","因果関係を見抜けなかった","具体と抽象の関係を把握できなかった","比較関係を把握できなかった","筆者の主張を特定できなかった","筆者の問題提起を把握できなかった","筆者の論理展開を追えなかった","文章全体の構造を把握できなかった","複数文章の共通点を把握できなかった","複数文章の相違点を把握できなかった","資料と本文を関連付けられなかった"],
+    "②現代文：選択肢": ["本文の根拠を確認せず選んだ","選択肢の一部だけ見て選んだ","選択肢全体を読まなかった","本文と選択肢の対応箇所を見つけられなかった","言い換えを見抜けなかった","本文にない内容を含む選択肢を選んだ","本文と矛盾する選択肢を選んだ","一部は正しいが全体として誤りの選択肢を選んだ","程度が強すぎる表現を見落とした","断定表現を見落とした","主語が変わっていることに気づかなかった","因果関係が逆になっていることに気づかなかった","時系列が逆になっていることに気づかなかった","条件が変わっていることに気づかなかった","対象が変わっていることに気づかなかった","「本文の趣旨」と「部分的な内容」を区別できなかった","もっともらしい選択肢に引っかかった","2択まで絞った後、根拠比較ができなかった"],
+    "③現代文：設問": ["設問文を読み違えた","「理由」を聞かれているのに内容を選んだ","「本文全体」を聞かれているのに一部分だけで判断した","「最も適切なもの」の意味を軽視した","傍線部の前後を読まなかった","必要な範囲を広げすぎた","必要な範囲を狭く読みすぎた","根拠箇所を探す方法が分からなかった","設問と本文を往復するのが遅かった"],
+    "④古文：単語": ["古文単語を知らなかった","現代語と意味が違う単語を間違えた","多義語の意味を選べなかった","文脈に合う意味を選べなかった","敬語の意味を知らなかった"],
+    "⑤古文：文法": ["助動詞の意味を判別できなかった","助動詞の接続を知らなかった","助動詞の活用を間違えた","助詞の働きを理解できなかった","識別ができなかった","動詞の活用を間違えた","主語を特定できなかった","省略された主語を補えなかった","敬語の方向を判断できなかった","敬語の種類を判別できなかった"],
+    "⑥古文：読解": ["文構造を取れなかった","主語が分からなくなった","誰が誰に何をしたか分からなくなった","心情を読み取れなかった","心情の変化を追えなかった","行動の理由を理解できなかった","人物関係を把握できなかった","場面転換に気づかなかった","時系列を追えなかった","省略された情報を補えなかった","和歌の意味を取れなかった","和歌と本文の関係を理解できなかった"],
+    "⑦漢文：知識": ["漢字の意味を知らなかった","重要語句を知らなかった","再読文字を知らなかった","句法を知らなかった","使役を取れなかった","受身を取れなかった","使役・受身の判別を誤った","否定を読み違えた","比較を読み違えた","反語を読み違えた","疑問を読み違えた","仮定を読み違えた"],
+    "⑧漢文：読解": ["書き下し文を正しく作れなかった","返り点を処理できなかった","文構造を取れなかった","主語を補えなかった","人物関係を把握できなかった","行動の理由を理解できなかった","話の展開を追えなかった","筆者の主張を把握できなかった","教訓・結論を把握できなかった"]
+  }
+};
+
+const LS_CUSTOM = "kyoteCheckApp_customItems";
+const LS_RECORDS = "kyoteCheckApp_records";
+const LS_OPENSTATE = "kyoteCheckApp_openCats";
+const LS_STUDENTS = "kyoteCheckApp_studentNames";
+const LS_LAST_STUDENT = "kyoteCheckApp_lastStudent";
+
+function loadStudentNames(){
+  try{ return JSON.parse(localStorage.getItem(LS_STUDENTS)) || []; }
+  catch(e){ return []; }
+}
+function saveStudentNames(list){ localStorage.setItem(LS_STUDENTS, JSON.stringify(list)); }
+function addKnownStudentName(name){
+  let list = loadStudentNames();
+  if(!list.includes(name)){
+    list.push(name);
+    saveStudentNames(list);
+  }
+  localStorage.setItem(LS_LAST_STUDENT, name);
+}
+function populateStudentDatalist(){
+  const dl = document.getElementById('studentNameList');
+  dl.innerHTML = loadStudentNames().map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+}
+
+function loadCustom(){
+  try{ return JSON.parse(localStorage.getItem(LS_CUSTOM)) || {"英語":{}, "国語":{}}; }
+  catch(e){ return {"英語":{}, "国語":{}}; }
+}
+function saveCustom(data){ localStorage.setItem(LS_CUSTOM, JSON.stringify(data)); }
+
+function loadRecords(){
+  try{ return JSON.parse(localStorage.getItem(LS_RECORDS)) || []; }
+  catch(e){ return []; }
+}
+function saveRecords(recs){ localStorage.setItem(LS_RECORDS, JSON.stringify(recs)); }
+
+let customItems = loadCustom();
+let records = loadRecords();
+let currentSubject = "英語";
+let openCats = {}; // category name -> bool
+
+/* カテゴリごとの色分け（見やすさのため） */
+const CAT_PALETTE = ["#2563eb","#16a34a","#d97706","#dc2626","#7c3aed","#0891b2","#db2777","#65a30d"];
+function categoryColor(subject, catName){
+  const cats = getAllCategories(subject);
+  const idx = Object.keys(cats).indexOf(catName);
+  return CAT_PALETTE[(idx < 0 ? 0 : idx) % CAT_PALETTE.length];
+}
+
+/* current in-progress check state: {category: {item: {checked:bool, note:string}}} */
+let checkState = {};
+
+function resetCheckState(){
+  checkState = {};
+}
+
+function getAllCategories(subject){
+  const base = DEFAULT_DATA[subject];
+  const cust = customItems[subject] || {};
+  const cats = {};
+  Object.keys(base).forEach(c => { cats[c] = base[c].slice(); });
+  Object.keys(cust).forEach(c => {
+    if(!cats[c]) cats[c] = [];
+    cust[c].forEach(it => { if(!cats[c].includes(it)) cats[c].push(it); });
+  });
+  return cats;
+}
+
+/* ================= 記録する VIEW 描画 ================= */
+function renderCategoryList(){
+  const container = document.getElementById('categoryList');
+  container.innerHTML = "";
+  const cats = getAllCategories(currentSubject);
+  const custForSubject = customItems[currentSubject] || {};
+
+  Object.keys(cats).forEach(catName => {
+    const items = cats[catName];
+    const color = categoryColor(currentSubject, catName);
+    const div = document.createElement('div');
+    div.className = 'category';
+    div.style.borderLeftColor = color;
+    if(openCats[catName]) div.classList.add('open');
+
+    const checkedCountInCat = items.filter(it => checkState[catName] && checkState[catName][it] && checkState[catName][it].checked).length;
+
+    const head = document.createElement('div');
+    head.className = 'category-head';
+    head.innerHTML = `<span class="category-title"><span class="cat-dot" style="background:${color}"></span>${catName}</span>
+      <span><span class="category-count ${checkedCountInCat>0?'has':''}" id="cnt_${cssSafe(catName)}" style="${checkedCountInCat>0?`background:${color};`:''}">${checkedCountInCat}</span> <span class="chevron">▶</span></span>`;
+    head.addEventListener('click', () => {
+      div.classList.toggle('open');
+      openCats[catName] = div.classList.contains('open');
+    });
+    div.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'category-body';
+
+    items.forEach(itemText => {
+      const isCustom = (custForSubject[catName] || []).includes(itemText);
+      const row = document.createElement('div');
+      row.className = 'item';
+      const cid = 'chk_' + cssSafe(catName) + '_' + cssSafe(itemText);
+      const state = (checkState[catName] && checkState[catName][itemText]) || null;
+      const checked = !!(state && state.checked);
+
+      row.innerHTML = `
+        <input type="checkbox" id="${cid}" ${checked ? 'checked' : ''}>
+        <label for="${cid}">${escapeHtml(itemText)}${isCustom ? '<span class="custom-tag">追加</span>' : ''}</label>
+        ${isCustom ? '<span class="del-custom">削除</span>' : ''}
+      `;
+
+      const cb = row.querySelector('input[type=checkbox]');
+
+      /* この項目専用の自由記入欄（対策・次に気をつけること） */
+      const awaWrap = document.createElement('div');
+      awaWrap.className = 'item-awa' + (checked ? ' show' : '');
+      const existingNote = state && typeof state.note === 'string' ? state.note : "";
+      awaWrap.innerHTML = `<textarea placeholder="次に気をつけること・対策を自分で記入（任意）">${escapeHtml(existingNote)}</textarea>`;
+      const awaInput = awaWrap.querySelector('textarea');
+
+      const ensureState = () => {
+        if(!checkState[catName]) checkState[catName] = {};
+        if(!checkState[catName][itemText]){
+          checkState[catName][itemText] = {checked:false, note:""};
+        }
+        return checkState[catName][itemText];
+      };
+
+      cb.addEventListener('change', () => {
+        const st = ensureState();
+        st.checked = cb.checked;
+        awaWrap.classList.toggle('show', cb.checked);
+        updateCategoryCount(catName, items);
+        updateSaveSummary();
+      });
+      awaInput.addEventListener('input', () => {
+        const st = ensureState();
+        st.note = awaInput.value;
+      });
+
+      if(isCustom){
+        const delBtn = row.querySelector('.del-custom');
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if(confirm(`「${itemText}」をカテゴリから削除しますか？`)){
+            removeCustomItem(currentSubject, catName, itemText);
+          }
+        });
+      }
+
+      body.appendChild(row);
+      body.appendChild(awaWrap);
+    });
+
+    const addRow = document.createElement('div');
+    addRow.className = 'add-item-row';
+    addRow.innerHTML = `<input type="text" placeholder="項目を追加...">
+      <button>追加</button>`;
+    const addInput = addRow.querySelector('input');
+    const addBtn = addRow.querySelector('button');
+    const doAdd = () => {
+      const val = addInput.value.trim();
+      if(!val) return;
+      addCustomItem(currentSubject, catName, val);
+      addInput.value = "";
+    };
+    addBtn.addEventListener('click', doAdd);
+    addInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') doAdd(); });
+    body.appendChild(addRow);
+
+    div.appendChild(body);
+    container.appendChild(div);
+  });
+}
+
+function cssSafe(s){
+  return btoa(unescape(encodeURIComponent(s))).replace(/[^a-zA-Z0-9]/g,'');
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function updateCategoryCount(catName, items){
+  const el = document.getElementById('cnt_' + cssSafe(catName));
+  if(!el) return;
+  const n = items.filter(it => checkState[catName] && checkState[catName][it] && checkState[catName][it].checked).length;
+  el.textContent = n;
+  el.classList.toggle('has', n>0);
+  el.style.background = n>0 ? categoryColor(currentSubject, catName) : '';
+}
+
+function addCustomItem(subject, cat, text){
+  if(!customItems[subject]) customItems[subject] = {};
+  if(!customItems[subject][cat]) customItems[subject][cat] = [];
+  if(customItems[subject][cat].includes(text)) { showToast('すでに追加済みです'); return; }
+  customItems[subject][cat].push(text);
+  saveCustom(customItems);
+  openCats[cat] = true;
+  renderCategoryList();
+  showToast('項目を追加しました');
+}
+function removeCustomItem(subject, cat, text){
+  if(customItems[subject] && customItems[subject][cat]){
+    customItems[subject][cat] = customItems[subject][cat].filter(x => x !== text);
+  }
+  if(checkState[cat]) delete checkState[cat][text];
+  saveCustom(customItems);
+  renderCategoryList();
+  updateSaveSummary();
+}
+
+function updateSaveSummary(){
+  let total = 0;
+  Object.keys(checkState).forEach(cat => {
+    Object.keys(checkState[cat]).forEach(it => {
+      if(checkState[cat][it].checked) total++;
+    });
+  });
+  document.getElementById('saveSummary').textContent = `${total}件チェック中`;
+  document.getElementById('progressBar').textContent = `${currentSubject}｜チェック済み ${total} 件`;
+  document.getElementById('saveBtn').disabled = total === 0;
+}
+
+/* ================= 保存 ================= */
+document.getElementById('saveBtn').addEventListener('click', () => {
+  const items = [];
+  Object.keys(checkState).forEach(cat => {
+    Object.keys(checkState[cat]).forEach(it => {
+      const st = checkState[cat][it];
+      if(st.checked){
+        items.push({category: cat, item: it, note: (st.note || "").trim()});
+      }
+    });
+  });
+  if(items.length === 0) return;
+
+  const studentInput = document.getElementById('studentName');
+  const studentVal = studentInput.value.trim();
+  if(!studentVal){
+    showToast('生徒名を入力してください');
+    studentInput.focus();
+    return;
+  }
+  addKnownStudentName(studentVal);
+  populateStudentDatalist();
+
+  const rec = {
+    id: Date.now(),
+    date: document.getElementById('recDate').value || todayStr(),
+    label: document.getElementById('recLabel').value.trim(),
+    subject: currentSubject,
+    student: studentVal,
+    items: items
+  };
+  records.unshift(rec);
+  saveRecords(records);
+
+  resetCheckState();
+  document.getElementById('recLabel').value = "";
+  renderCategoryList();
+  updateSaveSummary();
+  showToast('記録を保存しました');
+});
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+/* ================= タブ / 科目切り替え ================= */
+document.getElementById('tabRecord').addEventListener('click', () => switchTab('record'));
+document.getElementById('tabReview').addEventListener('click', () => switchTab('review'));
+
+function switchTab(name){
+  document.getElementById('tabRecord').classList.toggle('active', name==='record');
+  document.getElementById('tabReview').classList.toggle('active', name==='review');
+  document.getElementById('viewRecord').classList.toggle('active', name==='record');
+  document.getElementById('viewReview').classList.toggle('active', name==='review');
+  document.getElementById('saveBar').style.display = name==='record' ? 'flex' : 'none';
+  if(name === 'review') renderReview();
+}
+
+document.getElementById('subjEngBtn').addEventListener('click', () => switchSubject('英語'));
+document.getElementById('subjKokBtn').addEventListener('click', () => switchSubject('国語'));
+
+function switchSubject(subj){
+  if(currentSubject === subj) return;
+  currentSubject = subj;
+  document.getElementById('subjEngBtn').classList.toggle('active', subj==='英語');
+  document.getElementById('subjKokBtn').classList.toggle('active', subj==='国語');
+  resetCheckState();
+  openCats = {};
+  renderCategoryList();
+  updateSaveSummary();
+}
+
+/* ================= 振り返る VIEW ================= */
+document.getElementById('filterSubject').addEventListener('change', renderReview);
+document.getElementById('filterRange').addEventListener('change', renderReview);
+document.getElementById('filterStudent').addEventListener('change', renderReview);
+
+function populateStudentFilter(){
+  const sel = document.getElementById('filterStudent');
+  const current = sel.value;
+  const names = Array.from(new Set(records.map(r => r.student).filter(Boolean))).sort();
+  sel.innerHTML = '<option value="all">全生徒</option>' + names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  if(names.includes(current)) sel.value = current;
+}
+
+function getFilteredRecords(){
+  const subj = document.getElementById('filterSubject').value;
+  const range = document.getElementById('filterRange').value;
+  const stu = document.getElementById('filterStudent').value;
+  let list = records.slice();
+  if(subj !== 'all') list = list.filter(r => r.subject === subj);
+  if(stu !== 'all') list = list.filter(r => r.student === stu);
+  if(range !== 'all'){
+    const days = parseInt(range,10);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    list = list.filter(r => new Date(r.date) >= cutoff);
+  }
+  return list;
+}
+
+function renderReview(){
+  populateStudentFilter();
+  const list = getFilteredRecords();
+
+  // ランキング（項目別）
+  const itemCounts = {}; // key: subject|category|item -> {count, subject}
+  const catCounts = {}; // key: subject|category -> count
+
+  list.forEach(rec => {
+    rec.items.forEach(it => {
+      const key = rec.subject + '｜' + it.category + '｜' + it.item;
+      if(!itemCounts[key]) itemCounts[key] = {count:0, subject:rec.subject, category:it.category, item:it.item};
+      itemCounts[key].count++;
+
+      const ckey = rec.subject + '｜' + it.category;
+      catCounts[ckey] = (catCounts[ckey] || 0) + 1;
+    });
+  });
+
+  const rankingArr = Object.values(itemCounts).sort((a,b) => b.count - a.count).slice(0,10);
+  const rankingEl = document.getElementById('rankingList');
+  if(rankingArr.length === 0){
+    rankingEl.innerHTML = `<div class="empty-msg">まだ記録がありません。「記録する」タブでチェックして保存してください。</div>`;
+  } else {
+    const maxCount = rankingArr[0].count;
+    rankingEl.innerHTML = rankingArr.map(r => {
+      const color = categoryColor(r.subject, r.category);
+      return `
+      <div class="bar-row">
+        <div class="bar-label">
+          <span><span class="cat-dot" style="background:${color}"></span>${escapeHtml(r.item)}<span style="color:var(--sub); font-size:11px;"> ／ ${escapeHtml(r.category)}</span></span>
+          <span class="cnt">${r.count}回</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(r.count/maxCount*100)}%; background:${color};"></div></div>
+      </div>
+    `;
+    }).join('');
+  }
+
+  // カテゴリ別
+  const catArr = Object.keys(catCounts).map(k => {
+    const [subject, category] = k.split('｜');
+    return {subject, category, count: catCounts[k]};
+  }).sort((a,b) => b.count - a.count);
+  const catEl = document.getElementById('categoryStats');
+  if(catArr.length === 0){
+    catEl.innerHTML = `<div class="empty-msg">データなし</div>`;
+  } else {
+    const maxCat = catArr[0].count;
+    catEl.innerHTML = catArr.map(r => {
+      const color = categoryColor(r.subject, r.category);
+      return `
+      <div class="bar-row">
+        <div class="bar-label">
+          <span><span class="cat-dot" style="background:${color}"></span>${escapeHtml(r.category)}<span style="color:var(--sub); font-size:11px;"> （${r.subject}）</span></span>
+          <span class="cnt">${r.count}回</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(r.count/maxCat*100)}%; background:${color};"></div></div>
+      </div>
+    `;
+    }).join('');
+  }
+
+  // 対策メモまとめ（カテゴリ・項目別）
+  const noteGroups = {}; // key: subject|category -> {subject, category, items:{itemName:[{note,date,student}]}}
+  list.forEach(rec => {
+    rec.items.forEach(it => {
+      if(!it.note || !it.note.trim()) return;
+      const key = rec.subject + '｜' + it.category;
+      if(!noteGroups[key]) noteGroups[key] = {subject: rec.subject, category: it.category, items:{}};
+      if(!noteGroups[key].items[it.item]) noteGroups[key].items[it.item] = [];
+      noteGroups[key].items[it.item].push({note: it.note, date: rec.date, student: rec.student});
+    });
+  });
+  const groupArr = Object.values(noteGroups).sort((a,b) => {
+    if(a.subject !== b.subject) return a.subject === '英語' ? -1 : 1;
+    const cats = getAllCategories(a.subject);
+    return Object.keys(cats).indexOf(a.category) - Object.keys(cats).indexOf(b.category);
+  });
+  const notesEl = document.getElementById('notesSummary');
+  if(groupArr.length === 0){
+    notesEl.innerHTML = `<div class="empty-msg">まだ対策メモがありません。チェック時に自由記入欄に書き込むとここにまとまります。</div>`;
+  } else {
+    notesEl.innerHTML = groupArr.map(g => {
+      const color = categoryColor(g.subject, g.category);
+      const itemsHtml = Object.keys(g.items).map(itemName => {
+        const entries = g.items[itemName];
+        const entriesHtml = entries.map(e => `
+          <div class="notes-entry">${escapeHtml(e.note)}<span class="notes-meta">${escapeHtml(e.date)} ／ ${escapeHtml(e.student || '')}</span></div>
+        `).join('');
+        return `<div class="notes-item-group"><div class="notes-item-title">${escapeHtml(itemName)}</div>${entriesHtml}</div>`;
+      }).join('');
+      return `<div class="notes-cat-group">
+        <div class="notes-cat-head"><span class="cat-dot" style="background:${color}"></span>${escapeHtml(g.category)}<span style="color:var(--sub); font-weight:400; font-size:11px; margin-left:6px;">（${g.subject}）</span></div>
+        ${itemsHtml}
+      </div>`;
+    }).join('');
+  }
+
+  // 記録一覧
+  const recEl = document.getElementById('recordList');
+  if(list.length === 0){
+    recEl.innerHTML = `<div class="empty-msg">記録がありません</div>`;
+  } else {
+    recEl.innerHTML = "";
+    list.forEach(rec => {
+      const card = document.createElement('div');
+      card.className = 'record-card';
+      card.innerHTML = `
+        <div class="record-head">
+          <div class="rmeta"><span class="rsubj ${rec.subject==='英語'?'eng':'kok'}">${rec.subject}</span>${escapeHtml(rec.student || '（名前なし）')} ／ ${rec.date}${rec.label ? ' ／ ' + escapeHtml(rec.label) : ''}</div>
+          <div class="rcount">${rec.items.length}件 ▾</div>
+        </div>
+        <div class="record-body">
+          <ul>
+            ${rec.items.map(it => `<li><span style="color:${categoryColor(rec.subject, it.category)}; font-weight:700;">【${escapeHtml(it.category)}】</span>${escapeHtml(it.item)}${it.note ? '<span class="note-text">📝 次は：'+escapeHtml(it.note)+'</span>' : ''}</li>`).join('')}
+          </ul>
+          <div class="record-actions"><button>この記録を削除</button></div>
+        </div>
+      `;
+      card.querySelector('.record-head').addEventListener('click', () => card.classList.toggle('open'));
+      card.querySelector('.record-actions button').addEventListener('click', () => {
+        if(confirm('この記録を削除しますか？')){
+          records = records.filter(r => r.id !== rec.id);
+          saveRecords(records);
+          renderReview();
+          showToast('削除しました');
+        }
+      });
+      recEl.appendChild(card);
+    });
+  }
+}
+
+/* ================= トースト ================= */
+let toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+/* ================= 初期化 ================= */
+document.getElementById('recDate').value = todayStr();
+populateStudentDatalist();
+document.getElementById('studentName').value = localStorage.getItem(LS_LAST_STUDENT) || "";
+renderCategoryList();
+updateSaveSummary();
+</script>
+</body>
+</html>
