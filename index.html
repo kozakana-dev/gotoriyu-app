@@ -2,928 +2,2178 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>誤答理由分析</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>マーク読み取り55</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#2563eb">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="誤答理由分析">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#1b2a1f">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+</script>
 <style>
   :root{
-    --bg:#f4f5f7;
-    --card:#ffffff;
-    --ink:#22262b;
-    --sub:#6b7280;
-    --line:#e5e7eb;
-    --eng:#2563eb;
-    --eng-bg:#eef4ff;
-    --kok:#b45309;
-    --kok-bg:#fef6ea;
-    --accent:#16a34a;
-    --danger:#dc2626;
-    --radius:14px;
+    --paper:#EEF1F4; --paperDeep:#E1E7EC; --card:#FAFBFC; --ink:#1C2226;
+    --inkSoft:#63707B; --inkFaint:#9AA6AF; --red:#D8362B; --redSoft:#F6DAD7;
+    --green:#2F9E6E; --greenSoft:#D9EFE4; --line:#CBD4DB;
   }
   *{box-sizing:border-box;}
-  body{
-    margin:0;
-    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
-    background:var(--bg);
-    color:var(--ink);
-    padding-bottom:90px;
-  }
-  header{
-    position:sticky; top:0; z-index:20;
-    background:var(--card);
-    border-bottom:1px solid var(--line);
-    padding:14px 16px 0 16px;
-  }
-  h1{
-    font-size:17px; margin:0 0 10px 0; font-weight:700;
-  }
-  .tabs{
-    display:flex; gap:6px;
-  }
-  .tabs button{
-    flex:1;
-    padding:10px 6px;
-    border:none;
-    background:none;
-    font-size:14px;
-    font-weight:600;
-    color:var(--sub);
-    border-bottom:3px solid transparent;
-    cursor:pointer;
-  }
-  .tabs button.active{
-    color:var(--ink);
-    border-bottom-color:var(--accent);
-  }
-  main{ padding:14px; max-width:720px; margin:0 auto; }
-  .view{ display:none; }
-  .view.active{ display:block; }
-
-  /* --- subject switch --- */
-  .subject-switch{
-    display:flex; gap:8px; margin-bottom:14px;
-  }
-  .subject-switch button{
-    flex:1;
-    padding:10px;
-    border-radius:10px;
-    border:2px solid var(--line);
-    background:var(--card);
-    font-size:14px;
-    font-weight:700;
-    cursor:pointer;
-    color:var(--sub);
-  }
-  .subject-switch button.active.eng{ border-color:var(--eng); background:var(--eng-bg); color:var(--eng);}
-  .subject-switch button.active.kok{ border-color:var(--kok); background:var(--kok-bg); color:var(--kok);}
-
-  .meta-card{
-    background:var(--card);
-    border-radius:var(--radius);
-    padding:12px 14px;
-    margin-bottom:14px;
-    border:1px solid var(--line);
-    display:flex; gap:10px; flex-wrap:wrap;
-  }
-  .meta-card label{
-    font-size:11px; color:var(--sub); display:block; margin-bottom:3px;
-  }
-  .meta-card input[type=date], .meta-card input[type=text]{
-    border:1px solid var(--line);
-    border-radius:8px;
-    padding:7px 8px;
-    font-size:14px;
-    width:100%;
-  }
-  .meta-card .field{ flex:1; min-width:120px; }
-
-  .progress-bar{
-    font-size:12px; color:var(--sub); margin-bottom:10px;
-  }
-
-  .category{
-    background:var(--card);
-    border-radius:var(--radius);
-    margin-bottom:10px;
-    border:1px solid var(--line);
-    border-left:5px solid var(--line);
-    overflow:hidden;
-  }
-  .cat-dot{
-    display:inline-block;
-    width:10px; height:10px;
-    border-radius:50%;
-    margin-right:7px;
-    flex-shrink:0;
-  }
-  .category-head{
-    padding:12px 14px;
-    display:flex; justify-content:space-between; align-items:center;
-    cursor:pointer;
-  }
-  .category-title{ font-size:14px; font-weight:700; display:inline-flex; align-items:center; }
-  .category-count{
-    font-size:11px;
-    background:var(--bg);
-    color:var(--sub);
-    border-radius:20px;
-    padding:2px 9px;
-    margin-left:8px;
-  }
-  .category-count.has{
-    background:var(--accent);
-    color:#fff;
-  }
-  .chevron{ font-size:12px; color:var(--sub); transition:transform .15s; }
-  .category.open .chevron{ transform:rotate(90deg); }
-  .category-body{
-    display:none;
-    padding:0 14px 12px 14px;
-    border-top:1px solid var(--line);
-  }
-  .category.open .category-body{ display:block; }
-
-  .item{
-    display:flex; align-items:flex-start; gap:10px;
-    padding:9px 0;
-    border-bottom:1px dashed var(--line);
-  }
-  .item:last-of-type{ border-bottom:none; }
-  .item input[type=checkbox]{
-    width:19px; height:19px; margin-top:2px; flex-shrink:0; accent-color:var(--accent);
-  }
-  .item label{
-    font-size:14.5px; line-height:1.4; flex:1; cursor:pointer;
-  }
-  .item-awa{
-    display:none;
-    margin:2px 0 10px 29px;
-  }
-  .item-awa.show{ display:block; }
-  .item-awa textarea{
-    width:100%;
-    border:1px solid #cfe8ec;
-    border-radius:8px;
-    padding:7px 9px;
-    font-size:13px;
-    background:#f0f9fb;
-    resize:vertical;
-    min-height:40px;
-    font-family:inherit;
-  }
-
-  .add-item-row{
-    display:flex; gap:6px; padding-top:10px; margin-top:4px;
-  }
-  .add-item-row input{
-    flex:1;
-    border:1px solid var(--line);
-    border-radius:8px;
-    padding:7px 9px;
-    font-size:13.5px;
-  }
-  .add-item-row button{
-    border:none;
-    background:var(--ink);
-    color:#fff;
-    border-radius:8px;
-    padding:0 14px;
-    font-size:13px;
-    cursor:pointer;
-  }
-  .custom-tag{
-    font-size:10px; color:#fff; background:#9ca3af; border-radius:5px; padding:1px 5px; margin-left:5px; vertical-align:middle;
-  }
-  .del-custom{
-    font-size:11px; color:var(--danger); cursor:pointer; margin-left:6px; flex-shrink:0;
-  }
-
-  .save-bar{
-    position:fixed; left:0; right:0; bottom:0; z-index:20;
-    background:var(--card);
-    border-top:1px solid var(--line);
-    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
-    display:flex; gap:10px; align-items:center;
-    max-width:720px; margin:0 auto;
-  }
-  .save-bar .summary{ font-size:12px; color:var(--sub); flex:1; }
-  .save-bar button{
-    background:var(--accent);
-    color:#fff;
-    border:none;
-    border-radius:10px;
-    padding:12px 18px;
-    font-size:14.5px;
-    font-weight:700;
-    cursor:pointer;
-  }
-  .save-bar button:disabled{ background:#9ca3af; }
-
-  /* --- review view --- */
-  .filter-row{
-    display:flex; gap:8px; margin-bottom:14px;
-  }
-  .filter-row select{
-    flex:1;
-    padding:8px;
-    border-radius:8px;
-    border:1px solid var(--line);
-    font-size:13.5px;
-    background:var(--card);
-  }
-  .stat-card{
-    background:var(--card);
-    border-radius:var(--radius);
-    padding:14px;
-    margin-bottom:12px;
-    border:1px solid var(--line);
-  }
-  .stat-card h3{ margin:0 0 10px 0; font-size:13px; color:var(--sub); font-weight:700; }
-  .bar-row{ margin-bottom:9px; }
-  .bar-row .bar-label{
-    font-size:13px; display:flex; justify-content:space-between; margin-bottom:3px;
-  }
-  .bar-row .bar-label .cnt{ color:var(--sub); font-weight:700; }
-  .bar-track{
-    background:var(--bg); border-radius:6px; height:9px; overflow:hidden;
-  }
-  .bar-fill{
-    height:100%; border-radius:6px; background:var(--eng);
-  }
-  .bar-fill.kok{ background:var(--kok); }
-  .empty-msg{
-    text-align:center; color:var(--sub); font-size:13.5px; padding:40px 20px;
-  }
-
-  .notes-cat-group{
-    margin-bottom:14px;
-  }
-  .notes-cat-group:last-child{ margin-bottom:0; }
-  .notes-cat-head{
-    display:flex; align-items:center;
-    font-size:13px; font-weight:700;
-    margin-bottom:8px;
-    padding-bottom:5px;
-    border-bottom:1px solid var(--line);
-  }
-  .notes-item-group{
-    margin-bottom:10px;
-    padding-left:17px;
-  }
-  .notes-item-group:last-child{ margin-bottom:0; }
-  .notes-item-title{
-    font-size:13px; font-weight:600; margin-bottom:4px;
-  }
-  .notes-entry{
-    font-size:12.5px;
-    color:var(--ink);
-    background:var(--bg);
-    border-radius:8px;
-    padding:6px 9px;
-    margin-bottom:5px;
-  }
-  .notes-entry .notes-meta{
-    display:block; font-size:10.5px; color:var(--sub); margin-top:2px;
-  }
-
-  .record-card{
-    background:var(--card);
-    border-radius:var(--radius);
-    padding:12px 14px;
-    margin-bottom:10px;
-    border:1px solid var(--line);
-  }
-  .record-head{
-    display:flex; justify-content:space-between; align-items:center; cursor:pointer;
-  }
-  .record-head .rmeta{ font-size:13px; }
-  .record-head .rmeta .rsubj{
-    font-weight:700; font-size:11px; border-radius:5px; padding:1px 7px; margin-right:6px;
-  }
-  .rsubj.eng{ background:var(--eng-bg); color:var(--eng); }
-  .rsubj.kok{ background:var(--kok-bg); color:var(--kok); }
-  .record-head .rcount{ font-size:12px; color:var(--sub); }
-  .record-body{
-    display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);
-  }
-  .record-card.open .record-body{ display:block; }
-  .record-body ul{ margin:0; padding-left:18px; font-size:13.5px; }
-  .record-body li{ margin-bottom:5px; }
-  .record-body .note-text{ display:block; color:var(--sub); font-size:12px; margin-top:1px; }
-  .record-actions{
-    margin-top:10px; text-align:right;
-  }
-  .record-actions button{
-    background:none; border:none; color:var(--danger); font-size:12px; cursor:pointer;
-  }
-  .toast{
-    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
-    background:#111827; color:#fff; padding:9px 18px; border-radius:20px;
-    font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:30;
-  }
-  .toast.show{ opacity:1; }
+  html,body{margin:0;padding:0;background:#D8DEE3;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic',Meiryo,system-ui,sans-serif;color:var(--ink);}
+  #app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--paper);}
+  .header{padding:16px 18px;background:var(--ink);color:var(--paper);display:flex;align-items:center;gap:10px;}
+  .header .dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--red);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .header .dot i{width:8px;height:8px;border-radius:50%;background:var(--red);display:block;}
+  .header .back{background:none;border:none;color:var(--paper);font-size:20px;cursor:pointer;padding:4px;}
+  .header .title{font-weight:700;font-size:16px;letter-spacing:.3px;}
+  .body{flex:1;overflow-y:auto;padding:16px 18px 24px;}
+  .nav{display:flex;border-top:1px solid var(--line);background:var(--card);}
+  .nav button{flex:1;background:none;border:none;padding:10px 0 12px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--inkFaint);font-family:inherit;cursor:pointer;}
+  .nav button.active{color:var(--red);}
+  .nav button .ic{font-size:19px;}
+  .nav button .lb{font-size:10.5px;}
+  .nav button.active .lb{font-weight:700;}
+  .btn{cursor:pointer;border:none;font-family:inherit;}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--ink);color:var(--paper);border-radius:12px;padding:13px 16px;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;}
+  .btn-danger{background:var(--red);color:#fff;border-radius:12px;padding:13px 0;font-weight:700;font-size:14px;width:100%;}
+  .btn-secondary{background:var(--paperDeep);color:var(--ink);border-radius:10px;padding:12px 0;font-weight:600;font-size:13.5px;}
+  .upload-btn{background:var(--ink);color:var(--paper);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+  .iconbtn{background:none;border:none;padding:4px;color:var(--inkFaint);font-size:16px;cursor:pointer;}
+  input[type=text],input[type=number],select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;background:#fff;color:var(--ink);font-family:inherit;}
+  textarea{font-family:ui-monospace,monospace;resize:vertical;line-height:1.9;letter-spacing:0.2px;}
+  .stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 8px;text-align:center;}
+  .stat .v{font-family:ui-monospace,monospace;font-size:20px;font-weight:700;}
+  .stat .l{font-size:10.5px;color:var(--inkSoft);margin-top:1px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 13px;}
+  .empty{border:1px dashed var(--line);border-radius:10px;padding:20px 16px;text-align:center;color:var(--inkSoft);font-size:12.5px;line-height:1.6;}
+  .step-row{display:flex;align-items:center;gap:8px;}
+  .badge{width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:ui-monospace,monospace;flex-shrink:0;}
+  .step-title{font-weight:700;font-size:13.5px;}
+  .step-hint{font-size:11px;color:var(--inkSoft);margin:4px 0 0 30px;line-height:1.6;}
+  .fieldlabel{font-size:11.5px;font-weight:700;color:var(--inkSoft);margin-bottom:5px;}
+  .pill{min-width:38px;height:38px;padding:0 4px;border-radius:50%;border:1.5px solid var(--line);background:#fff;color:var(--ink);font-weight:700;font-size:14px;font-family:ui-monospace,monospace;cursor:pointer;}
+  .pill.small{min-width:30px;height:30px;border-radius:9px;font-size:12px;}
+  .pill.active{border-color:var(--red);background:var(--red);color:#fff;}
+  .presetbtn{font-size:11px;padding:4px 9px;border-radius:7px;background:#fff;color:var(--inkSoft);border:1px solid var(--line);cursor:pointer;}
+  .presetbtn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .modebtn{flex:1;background:var(--card);color:var(--inkSoft);border:1px solid var(--line);border-radius:9px;padding:9px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:700;line-height:1.3;cursor:pointer;}
+  .modebtn.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .qrow{display:flex;align-items:center;gap:8px;padding:3px 2px;border-radius:6px;}
+  .preview-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(52px, 1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:9px;overflow:hidden;max-height:280px;overflow-y:auto;}
+  .preview-cell{background:#fff;padding:6px 2px 5px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px;}
+  .preview-cell.missing{background:var(--redSoft);}
+  .preview-cell .pc-q{font-size:8.5px;color:var(--inkSoft);font-family:ui-monospace,monospace;}
+  .preview-cell .pc-ans{font-size:15px;font-weight:700;font-family:ui-monospace,monospace;color:var(--ink);line-height:1.1;}
+  .preview-cell.missing .pc-ans{color:var(--red);}
+  .preview-cell.grouped{box-shadow:inset 0 0 0 2px var(--blue, #2E7FD8);}
+  .preview-cell.disagree{background:#FFF3D6;box-shadow:inset 0 0 0 2px #C98A00;}
+  .preview-cell.disagree .pc-ans{color:#C98A00;}
+  .preview-cell.grouped .pc-q{color:#2E7FD8;font-weight:700;}
+  .preview-cell .pc-pt{font-size:8px;color:var(--inkFaint);}
+  .qlistbox{display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:var(--card);}
+  .qrow{display:flex;align-items:center;gap:10px;padding:7px 8px;border-bottom:1px solid var(--paperDeep);}
+  .qrow:last-child{border-bottom:none;}
+  .qrow:nth-child(even){background:rgba(0,0,0,0.015);}
+  .qn{width:38px;flex-shrink:0;font-size:11.5px;color:var(--inkSoft);font-family:ui-monospace,monospace;font-weight:700;}
+  .result-card{border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;}
+  .result-card.ok{background:var(--greenSoft);}
+  .result-card.warn{background:var(--redSoft);}
+  .result-row{font-size:12.5px;font-weight:700;color:var(--ink);}
+  .result-row.sub{font-size:11px;font-weight:600;color:var(--inkSoft);}
+  .result-row.warn-text{font-size:11px;font-weight:600;color:var(--red);}
+  .subtotal-box{width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--card);}
+  .subtotal-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--paperDeep);}
+  .subtotal-row:last-child{border-bottom:none;}
+  .flags-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(34px, 1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;max-height:220px;overflow-y:auto;}
+  .flags-cell{background:#fff;padding:4px 2px 3px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px;}
+  .flags-cell .fc-q{font-size:8px;color:var(--inkFaint);font-family:ui-monospace,monospace;}
+  .flags-cell .fc-sym{font-size:13px;font-weight:700;line-height:1;}
+  .flags-cell.ok{background:var(--greenSoft);}
+  .flags-cell.ok .fc-sym{color:var(--green);}
+  .flags-cell.ng{background:var(--redSoft);}
+  .flags-cell.ng .fc-sym{color:var(--red);}
+  .flags-cell.skip{background:var(--paperDeep);}
+  .flags-cell.skip .fc-sym{color:var(--inkFaint);}
+  .notice{background:var(--redSoft);color:var(--red);border-radius:9px;padding:9px 12px;font-size:12px;font-weight:700;line-height:1.5;}
+  .canvas-wrap{position:relative;width:100%;line-height:0;border-radius:10px;overflow:hidden;border:1px solid var(--line);}
+  .canvas-wrap canvas{cursor:crosshair;}
+  .offline-banner{background:#FFF6D9;color:#8A6A00;font-size:11px;text-align:center;padding:6px 10px;}
+  .notice-blue{background:#E4EEFB;color:#1D5FA8;border-radius:9px;padding:9px 12px;font-size:11.5px;line-height:1.6;}
 </style>
 </head>
 <body>
-
-<header>
-  <h1>🐱 誤答理由分析</h1>
-  <div class="tabs">
-    <button id="tabRecord" class="active">✅ 記録する</button>
-    <button id="tabReview">📊 振り返る</button>
-  </div>
-</header>
-
-<main>
-
-  <!-- ============ 記録する VIEW ============ -->
-  <div id="viewRecord" class="view active">
-    <div class="meta-card">
-      <div class="field" style="flex:100%;">
-        <label>生徒名</label>
-        <input type="text" id="studentName" list="studentNameList" placeholder="生徒名を入力（自分のスマホなら一度入力すればOK）">
-        <datalist id="studentNameList"></datalist>
-      </div>
-    </div>
-
-    <div class="subject-switch">
-      <button id="subjEngBtn" class="eng active">英語</button>
-      <button id="subjKokBtn" class="kok">国語</button>
-    </div>
-
-    <div class="meta-card">
-      <div class="field">
-        <label>日付</label>
-        <input type="date" id="recDate">
-      </div>
-      <div class="field" style="flex:2;">
-        <label>テスト名・回（任意）</label>
-        <input type="text" id="recLabel" placeholder="例：第3回模試、大問2など">
-      </div>
-    </div>
-
-    <div class="progress-bar" id="progressBar"></div>
-
-    <div id="categoryList"></div>
-
-  </div>
-
-  <!-- ============ 振り返る VIEW ============ -->
-  <div id="viewReview" class="view">
-    <div class="filter-row">
-      <select id="filterStudent">
-        <option value="all">全生徒</option>
-      </select>
-    </div>
-    <div class="filter-row">
-      <select id="filterSubject">
-        <option value="all">全科目</option>
-        <option value="英語">英語のみ</option>
-        <option value="国語">国語のみ</option>
-      </select>
-      <select id="filterRange">
-        <option value="all">全期間</option>
-        <option value="30">直近30日</option>
-        <option value="7">直近7日</option>
-      </select>
-    </div>
-
-    <div class="stat-card">
-      <h3>弱点ランキング（チェック回数が多い項目 TOP10）</h3>
-      <div id="rankingList"></div>
-    </div>
-
-    <div class="stat-card">
-      <h3>カテゴリ別チェック回数</h3>
-      <div id="categoryStats"></div>
-    </div>
-
-    <div class="stat-card">
-      <h3>書いた対策のまとめ（カテゴリ・項目別）</h3>
-      <div id="notesSummary"></div>
-    </div>
-
-    <div class="stat-card" style="padding-bottom:4px;">
-      <h3>記録一覧（新しい順）</h3>
-      <div id="recordList"></div>
-    </div>
-  </div>
-
-</main>
-
-<div class="save-bar" id="saveBar">
-  <div class="summary" id="saveSummary">0件チェック中</div>
-  <button id="saveBtn">この記録を保存</button>
-</div>
-
-<div class="toast" id="toast"></div>
-
+<div id="app"></div>
 <script>
-/* ================= データ定義 ================= */
-const DEFAULT_DATA = {
-  "英語": {
-    "①単語・語彙": ["単語の意味を知らなかった","多義語の別の意味を知らなかった","熟語を知らなかった","句動詞を知らなかった","派生語を知らなかった","品詞を取り違えた","同義語・類義語の区別ができなかった","反意語の意味を取り違えた","文脈上の意味を選べなかった","知っている単語なのに意味が出てこなかった","単語の意味を思い出すのに時間がかかった"],
-    "②文法・構文": ["文構造を把握できなかった","主語・動詞を特定できなかった","修飾関係を間違えた","関係詞の構造を理解できなかった","分詞構文を理解できなかった","不定詞・動名詞の役割を取り違えた","比較構文を読み違えた","否定表現を読み違えた","代名詞が何を指すか分からなかった","接続詞の働きを理解できなかった","時制を読み違えた","助動詞の意味を取り違えた","仮定・条件の意味を取り違えた"],
-    "③読解": ["一文の意味が取れなかった","一文は読めたが段落の意味が分からなかった","段落同士の関係を把握できなかった","話の展開を追えなかった","筆者・話者の主張を特定できなかった","具体例と主張を区別できなかった","原因と結果を取り違えた","時系列を取り違えた","比較関係を把握できなかった","対比に気づかなかった","指示語の内容を特定できなかった","要点を拾えなかった","必要な情報を検索できなかった","複数箇所の情報を統合できなかった","本文と選択肢を対応させられなかった","言い換えに気づかなかった","選択肢の細かい違いを見抜けなかった","本文にない内容を選んだ","本文と矛盾する内容を選んだ"],
-    "④設問処理": ["設問の意味を取り違えた","「正しいもの／誤っているもの」を逆に読んだ","問われている範囲を間違えた","必要な情報の場所を見つけられなかった","選択肢を最後まで比較しなかった","根拠を確認せず選んだ","先入観で選んだ","消去法がうまく使えなかった","2択まで絞った後に判断を誤った","複数情報を組み合わせる問題で失敗した","図表と本文を結び付けられなかった"],
-    "⑤情報・図表問題": ["図表のタイトルを確認しなかった","軸・単位を見落とした","数値を読み間違えた","増減を読み違えた","比較対象を間違えた","本文と図表の対応を間違えた","図表から必要な情報を抽出できなかった","複数の図表を関連付けられなかった"],
-    "⑥速度・時間": ["読むのが遅かった","単語で止まりすぎた","一文を何度も読み直した","前の文に戻りすぎた","設問に時間をかけすぎた","迷った問題を切れなかった","時間配分を誤った","後半で時間が足りなくなった","最後に急いで精度が落ちた"],
-    "⑦ケアレス": ["マークミス","問題番号の取り違え","選択肢の押し間違い","設問の読み飛ばし","「not」など否定語の見落とし","数字・固有名詞の見落とし","根拠のある箇所を読み違えた","正解を分かっていたのに別の選択肢を選んだ"]
-  },
-  "国語": {
-    "①現代文：語句・文章理解": ["語句の意味を知らなかった","語句の意味を文脈から判断できなかった","指示語を追えなかった","接続語の働きを理解できなかった","文と文の関係を把握できなかった","段落の役割を理解できなかった","対比を見抜けなかった","因果関係を見抜けなかった","具体と抽象の関係を把握できなかった","比較関係を把握できなかった","筆者の主張を特定できなかった","筆者の問題提起を把握できなかった","筆者の論理展開を追えなかった","文章全体の構造を把握できなかった","複数文章の共通点を把握できなかった","複数文章の相違点を把握できなかった","資料と本文を関連付けられなかった"],
-    "②現代文：選択肢": ["本文の根拠を確認せず選んだ","選択肢の一部だけ見て選んだ","選択肢全体を読まなかった","本文と選択肢の対応箇所を見つけられなかった","言い換えを見抜けなかった","本文にない内容を含む選択肢を選んだ","本文と矛盾する選択肢を選んだ","一部は正しいが全体として誤りの選択肢を選んだ","程度が強すぎる表現を見落とした","断定表現を見落とした","主語が変わっていることに気づかなかった","因果関係が逆になっていることに気づかなかった","時系列が逆になっていることに気づかなかった","条件が変わっていることに気づかなかった","対象が変わっていることに気づかなかった","「本文の趣旨」と「部分的な内容」を区別できなかった","もっともらしい選択肢に引っかかった","2択まで絞った後、根拠比較ができなかった"],
-    "③現代文：設問": ["設問文を読み違えた","「理由」を聞かれているのに内容を選んだ","「本文全体」を聞かれているのに一部分だけで判断した","「最も適切なもの」の意味を軽視した","傍線部の前後を読まなかった","必要な範囲を広げすぎた","必要な範囲を狭く読みすぎた","根拠箇所を探す方法が分からなかった","設問と本文を往復するのが遅かった"],
-    "④古文：単語": ["古文単語を知らなかった","現代語と意味が違う単語を間違えた","多義語の意味を選べなかった","文脈に合う意味を選べなかった","敬語の意味を知らなかった"],
-    "⑤古文：文法": ["助動詞の意味を判別できなかった","助動詞の接続を知らなかった","助動詞の活用を間違えた","助詞の働きを理解できなかった","識別ができなかった","動詞の活用を間違えた","主語を特定できなかった","省略された主語を補えなかった","敬語の方向を判断できなかった","敬語の種類を判別できなかった"],
-    "⑥古文：読解": ["文構造を取れなかった","主語が分からなくなった","誰が誰に何をしたか分からなくなった","心情を読み取れなかった","心情の変化を追えなかった","行動の理由を理解できなかった","人物関係を把握できなかった","場面転換に気づかなかった","時系列を追えなかった","省略された情報を補えなかった","和歌の意味を取れなかった","和歌と本文の関係を理解できなかった"],
-    "⑦漢文：知識": ["漢字の意味を知らなかった","重要語句を知らなかった","再読文字を知らなかった","句法を知らなかった","使役を取れなかった","受身を取れなかった","使役・受身の判別を誤った","否定を読み違えた","比較を読み違えた","反語を読み違えた","疑問を読み違えた","仮定を読み違えた"],
-    "⑧漢文：読解": ["書き下し文を正しく作れなかった","返り点を処理できなかった","文構造を取れなかった","主語を補えなかった","人物関係を把握できなかった","行動の理由を理解できなかった","話の展開を追えなかった","筆者の主張を把握できなかった","教訓・結論を把握できなかった"]
+// ============================================================
+// 専用マークシート採点（55問・選択肢0-9・2列 固定テンプレート）
+// 用紙の外枠4隅をタップするだけで、全55問×10択の位置を
+// 射影変換（ホモグラフィー）で一括計算する。
+// ============================================================
+
+const GEOMETRY = {"pageW": 595.2755905511812, "pageH": 841.8897637795277, "frame": [[0.050397, 0.03801], [0.949603, 0.03801], [0.949603, 0.971493], [0.050397, 0.971493]], "bubbles": [[[0.125118, 0.19352], [0.167048, 0.19352], [0.208978, 0.19352], [0.250908, 0.19352], [0.292837, 0.19352], [0.334767, 0.19352], [0.376697, 0.19352], [0.418627, 0.19352], [0.460556, 0.19352]], [[0.125118, 0.221429], [0.167048, 0.221429], [0.208978, 0.221429], [0.250908, 0.221429], [0.292837, 0.221429], [0.334767, 0.221429], [0.376697, 0.221429], [0.418627, 0.221429], [0.460556, 0.221429]], [[0.125118, 0.249338], [0.167048, 0.249338], [0.208978, 0.249338], [0.250908, 0.249338], [0.292837, 0.249338], [0.334767, 0.249338], [0.376697, 0.249338], [0.418627, 0.249338], [0.460556, 0.249338]], [[0.125118, 0.277247], [0.167048, 0.277247], [0.208978, 0.277247], [0.250908, 0.277247], [0.292837, 0.277247], [0.334767, 0.277247], [0.376697, 0.277247], [0.418627, 0.277247], [0.460556, 0.277247]], [[0.125118, 0.305155], [0.167048, 0.305155], [0.208978, 0.305155], [0.250908, 0.305155], [0.292837, 0.305155], [0.334767, 0.305155], [0.376697, 0.305155], [0.418627, 0.305155], [0.460556, 0.305155]], [[0.125118, 0.333064], [0.167048, 0.333064], [0.208978, 0.333064], [0.250908, 0.333064], [0.292837, 0.333064], [0.334767, 0.333064], [0.376697, 0.333064], [0.418627, 0.333064], [0.460556, 0.333064]], [[0.125118, 0.360973], [0.167048, 0.360973], [0.208978, 0.360973], [0.250908, 0.360973], [0.292837, 0.360973], [0.334767, 0.360973], [0.376697, 0.360973], [0.418627, 0.360973], [0.460556, 0.360973]], [[0.125118, 0.388881], [0.167048, 0.388881], [0.208978, 0.388881], [0.250908, 0.388881], [0.292837, 0.388881], [0.334767, 0.388881], [0.376697, 0.388881], [0.418627, 0.388881], [0.460556, 0.388881]], [[0.125118, 0.41679], [0.167048, 0.41679], [0.208978, 0.41679], [0.250908, 0.41679], [0.292837, 0.41679], [0.334767, 0.41679], [0.376697, 0.41679], [0.418627, 0.41679], [0.460556, 0.41679]], [[0.125118, 0.444699], [0.167048, 0.444699], [0.208978, 0.444699], [0.250908, 0.444699], [0.292837, 0.444699], [0.334767, 0.444699], [0.376697, 0.444699], [0.418627, 0.444699], [0.460556, 0.444699]], [[0.125118, 0.472608], [0.167048, 0.472608], [0.208978, 0.472608], [0.250908, 0.472608], [0.292837, 0.472608], [0.334767, 0.472608], [0.376697, 0.472608], [0.418627, 0.472608], [0.460556, 0.472608]], [[0.125118, 0.500516], [0.167048, 0.500516], [0.208978, 0.500516], [0.250908, 0.500516], [0.292837, 0.500516], [0.334767, 0.500516], [0.376697, 0.500516], [0.418627, 0.500516], [0.460556, 0.500516]], [[0.125118, 0.528425], [0.167048, 0.528425], [0.208978, 0.528425], [0.250908, 0.528425], [0.292837, 0.528425], [0.334767, 0.528425], [0.376697, 0.528425], [0.418627, 0.528425], [0.460556, 0.528425]], [[0.125118, 0.556334], [0.167048, 0.556334], [0.208978, 0.556334], [0.250908, 0.556334], [0.292837, 0.556334], [0.334767, 0.556334], [0.376697, 0.556334], [0.418627, 0.556334], [0.460556, 0.556334]], [[0.125118, 0.584242], [0.167048, 0.584242], [0.208978, 0.584242], [0.250908, 0.584242], [0.292837, 0.584242], [0.334767, 0.584242], [0.376697, 0.584242], [0.418627, 0.584242], [0.460556, 0.584242]], [[0.125118, 0.612151], [0.167048, 0.612151], [0.208978, 0.612151], [0.250908, 0.612151], [0.292837, 0.612151], [0.334767, 0.612151], [0.376697, 0.612151], [0.418627, 0.612151], [0.460556, 0.612151]], [[0.125118, 0.64006], [0.167048, 0.64006], [0.208978, 0.64006], [0.250908, 0.64006], [0.292837, 0.64006], [0.334767, 0.64006], [0.376697, 0.64006], [0.418627, 0.64006], [0.460556, 0.64006]], [[0.125118, 0.667969], [0.167048, 0.667969], [0.208978, 0.667969], [0.250908, 0.667969], [0.292837, 0.667969], [0.334767, 0.667969], [0.376697, 0.667969], [0.418627, 0.667969], [0.460556, 0.667969]], [[0.125118, 0.695877], [0.167048, 0.695877], [0.208978, 0.695877], [0.250908, 0.695877], [0.292837, 0.695877], [0.334767, 0.695877], [0.376697, 0.695877], [0.418627, 0.695877], [0.460556, 0.695877]], [[0.125118, 0.723786], [0.167048, 0.723786], [0.208978, 0.723786], [0.250908, 0.723786], [0.292837, 0.723786], [0.334767, 0.723786], [0.376697, 0.723786], [0.418627, 0.723786], [0.460556, 0.723786]], [[0.125118, 0.751695], [0.167048, 0.751695], [0.208978, 0.751695], [0.250908, 0.751695], [0.292837, 0.751695], [0.334767, 0.751695], [0.376697, 0.751695], [0.418627, 0.751695], [0.460556, 0.751695]], [[0.125118, 0.779603], [0.167048, 0.779603], [0.208978, 0.779603], [0.250908, 0.779603], [0.292837, 0.779603], [0.334767, 0.779603], [0.376697, 0.779603], [0.418627, 0.779603], [0.460556, 0.779603]], [[0.125118, 0.807512], [0.167048, 0.807512], [0.208978, 0.807512], [0.250908, 0.807512], [0.292837, 0.807512], [0.334767, 0.807512], [0.376697, 0.807512], [0.418627, 0.807512], [0.460556, 0.807512]], [[0.125118, 0.835421], [0.167048, 0.835421], [0.208978, 0.835421], [0.250908, 0.835421], [0.292837, 0.835421], [0.334767, 0.835421], [0.376697, 0.835421], [0.418627, 0.835421], [0.460556, 0.835421]], [[0.125118, 0.86333], [0.167048, 0.86333], [0.208978, 0.86333], [0.250908, 0.86333], [0.292837, 0.86333], [0.334767, 0.86333], [0.376697, 0.86333], [0.418627, 0.86333], [0.460556, 0.86333]], [[0.125118, 0.891238], [0.167048, 0.891238], [0.208978, 0.891238], [0.250908, 0.891238], [0.292837, 0.891238], [0.334767, 0.891238], [0.376697, 0.891238], [0.418627, 0.891238], [0.460556, 0.891238]], [[0.125118, 0.919147], [0.167048, 0.919147], [0.208978, 0.919147], [0.250908, 0.919147], [0.292837, 0.919147], [0.334767, 0.919147], [0.376697, 0.919147], [0.418627, 0.919147], [0.460556, 0.919147]], [[0.125118, 0.947056], [0.167048, 0.947056], [0.208978, 0.947056], [0.250908, 0.947056], [0.292837, 0.947056], [0.334767, 0.947056], [0.376697, 0.947056], [0.418627, 0.947056], [0.460556, 0.947056]], [[0.576401, 0.19352], [0.618331, 0.19352], [0.660261, 0.19352], [0.702191, 0.19352], [0.74412, 0.19352], [0.78605, 0.19352], [0.82798, 0.19352], [0.86991, 0.19352], [0.911839, 0.19352]], [[0.576401, 0.221429], [0.618331, 0.221429], [0.660261, 0.221429], [0.702191, 0.221429], [0.74412, 0.221429], [0.78605, 0.221429], [0.82798, 0.221429], [0.86991, 0.221429], [0.911839, 0.221429]], [[0.576401, 0.249338], [0.618331, 0.249338], [0.660261, 0.249338], [0.702191, 0.249338], [0.74412, 0.249338], [0.78605, 0.249338], [0.82798, 0.249338], [0.86991, 0.249338], [0.911839, 0.249338]], [[0.576401, 0.277247], [0.618331, 0.277247], [0.660261, 0.277247], [0.702191, 0.277247], [0.74412, 0.277247], [0.78605, 0.277247], [0.82798, 0.277247], [0.86991, 0.277247], [0.911839, 0.277247]], [[0.576401, 0.305155], [0.618331, 0.305155], [0.660261, 0.305155], [0.702191, 0.305155], [0.74412, 0.305155], [0.78605, 0.305155], [0.82798, 0.305155], [0.86991, 0.305155], [0.911839, 0.305155]], [[0.576401, 0.333064], [0.618331, 0.333064], [0.660261, 0.333064], [0.702191, 0.333064], [0.74412, 0.333064], [0.78605, 0.333064], [0.82798, 0.333064], [0.86991, 0.333064], [0.911839, 0.333064]], [[0.576401, 0.360973], [0.618331, 0.360973], [0.660261, 0.360973], [0.702191, 0.360973], [0.74412, 0.360973], [0.78605, 0.360973], [0.82798, 0.360973], [0.86991, 0.360973], [0.911839, 0.360973]], [[0.576401, 0.388881], [0.618331, 0.388881], [0.660261, 0.388881], [0.702191, 0.388881], [0.74412, 0.388881], [0.78605, 0.388881], [0.82798, 0.388881], [0.86991, 0.388881], [0.911839, 0.388881]], [[0.576401, 0.41679], [0.618331, 0.41679], [0.660261, 0.41679], [0.702191, 0.41679], [0.74412, 0.41679], [0.78605, 0.41679], [0.82798, 0.41679], [0.86991, 0.41679], [0.911839, 0.41679]], [[0.576401, 0.444699], [0.618331, 0.444699], [0.660261, 0.444699], [0.702191, 0.444699], [0.74412, 0.444699], [0.78605, 0.444699], [0.82798, 0.444699], [0.86991, 0.444699], [0.911839, 0.444699]], [[0.576401, 0.472608], [0.618331, 0.472608], [0.660261, 0.472608], [0.702191, 0.472608], [0.74412, 0.472608], [0.78605, 0.472608], [0.82798, 0.472608], [0.86991, 0.472608], [0.911839, 0.472608]], [[0.576401, 0.500516], [0.618331, 0.500516], [0.660261, 0.500516], [0.702191, 0.500516], [0.74412, 0.500516], [0.78605, 0.500516], [0.82798, 0.500516], [0.86991, 0.500516], [0.911839, 0.500516]], [[0.576401, 0.528425], [0.618331, 0.528425], [0.660261, 0.528425], [0.702191, 0.528425], [0.74412, 0.528425], [0.78605, 0.528425], [0.82798, 0.528425], [0.86991, 0.528425], [0.911839, 0.528425]], [[0.576401, 0.556334], [0.618331, 0.556334], [0.660261, 0.556334], [0.702191, 0.556334], [0.74412, 0.556334], [0.78605, 0.556334], [0.82798, 0.556334], [0.86991, 0.556334], [0.911839, 0.556334]], [[0.576401, 0.584242], [0.618331, 0.584242], [0.660261, 0.584242], [0.702191, 0.584242], [0.74412, 0.584242], [0.78605, 0.584242], [0.82798, 0.584242], [0.86991, 0.584242], [0.911839, 0.584242]], [[0.576401, 0.612151], [0.618331, 0.612151], [0.660261, 0.612151], [0.702191, 0.612151], [0.74412, 0.612151], [0.78605, 0.612151], [0.82798, 0.612151], [0.86991, 0.612151], [0.911839, 0.612151]], [[0.576401, 0.64006], [0.618331, 0.64006], [0.660261, 0.64006], [0.702191, 0.64006], [0.74412, 0.64006], [0.78605, 0.64006], [0.82798, 0.64006], [0.86991, 0.64006], [0.911839, 0.64006]], [[0.576401, 0.667969], [0.618331, 0.667969], [0.660261, 0.667969], [0.702191, 0.667969], [0.74412, 0.667969], [0.78605, 0.667969], [0.82798, 0.667969], [0.86991, 0.667969], [0.911839, 0.667969]], [[0.576401, 0.695877], [0.618331, 0.695877], [0.660261, 0.695877], [0.702191, 0.695877], [0.74412, 0.695877], [0.78605, 0.695877], [0.82798, 0.695877], [0.86991, 0.695877], [0.911839, 0.695877]], [[0.576401, 0.723786], [0.618331, 0.723786], [0.660261, 0.723786], [0.702191, 0.723786], [0.74412, 0.723786], [0.78605, 0.723786], [0.82798, 0.723786], [0.86991, 0.723786], [0.911839, 0.723786]], [[0.576401, 0.751695], [0.618331, 0.751695], [0.660261, 0.751695], [0.702191, 0.751695], [0.74412, 0.751695], [0.78605, 0.751695], [0.82798, 0.751695], [0.86991, 0.751695], [0.911839, 0.751695]], [[0.576401, 0.779603], [0.618331, 0.779603], [0.660261, 0.779603], [0.702191, 0.779603], [0.74412, 0.779603], [0.78605, 0.779603], [0.82798, 0.779603], [0.86991, 0.779603], [0.911839, 0.779603]], [[0.576401, 0.807512], [0.618331, 0.807512], [0.660261, 0.807512], [0.702191, 0.807512], [0.74412, 0.807512], [0.78605, 0.807512], [0.82798, 0.807512], [0.86991, 0.807512], [0.911839, 0.807512]], [[0.576401, 0.835421], [0.618331, 0.835421], [0.660261, 0.835421], [0.702191, 0.835421], [0.74412, 0.835421], [0.78605, 0.835421], [0.82798, 0.835421], [0.86991, 0.835421], [0.911839, 0.835421]], [[0.576401, 0.86333], [0.618331, 0.86333], [0.660261, 0.86333], [0.702191, 0.86333], [0.74412, 0.86333], [0.78605, 0.86333], [0.82798, 0.86333], [0.86991, 0.86333], [0.911839, 0.86333]], [[0.576401, 0.891238], [0.618331, 0.891238], [0.660261, 0.891238], [0.702191, 0.891238], [0.74412, 0.891238], [0.78605, 0.891238], [0.82798, 0.891238], [0.86991, 0.891238], [0.911839, 0.891238]], [[0.576401, 0.919147], [0.618331, 0.919147], [0.660261, 0.919147], [0.702191, 0.919147], [0.74412, 0.919147], [0.78605, 0.919147], [0.82798, 0.919147], [0.86991, 0.919147], [0.911839, 0.919147]]], "choiceLabels": ["1", "2", "3", "4", "5", "6", "7", "8", "9"]};
+
+const DB = { sets: [], records: [], drafts: [] };
+function normalizeSet(s){
+  const points = (Array.isArray(s.points) && s.points.length === TOTAL_Q) ? s.points : Array(TOTAL_Q).fill(0);
+  const groups = (s.groups || []).map(g => {
+    if (Array.isArray(g)) return { qs: g, points: null }; // old format: plain array of indices
+    if (g && Array.isArray(g.qs)) return g; // already new format
+    return { qs: [], points: null };
+  }).filter(g => g.qs.length >= 2);
+  const sections = Array.isArray(s.sections) ? s.sections : [];
+  const answerKey = (Array.isArray(s.answerKey) && s.answerKey.length === TOTAL_Q) ? s.answerKey : Array(TOTAL_Q).fill(null);
+  return Object.assign({}, s, { points, groups, sections, answerKey });
+}
+function loadDB(){
+  try{ DB.sets = (JSON.parse(localStorage.getItem('msg2_sets') || '[]')).map(normalizeSet); }catch(e){ DB.sets = []; }
+  try{ DB.records = JSON.parse(localStorage.getItem('msg2_records') || '[]'); }catch(e){ DB.records = []; }
+  try{ DB.drafts = JSON.parse(localStorage.getItem('msg2_drafts') || '[]'); }catch(e){ DB.drafts = []; }
+}
+function saveSets(){ try{ localStorage.setItem('msg2_sets', JSON.stringify(DB.sets)); }catch(e){} }
+function saveRecords(){ try{ localStorage.setItem('msg2_records', JSON.stringify(DB.records)); }catch(e){} }
+function saveDrafts(){ try{ localStorage.setItem('msg2_drafts', JSON.stringify(DB.drafts)); }catch(e){} }
+function findDraft(setId, studentName){
+  return DB.drafts.find(d => d.setId === setId && d.studentName === studentName) || null;
+}
+function upsertDraft(setId, studentName, answersArr, lockedSections){
+  const existing = findDraft(setId, studentName);
+  if (existing) { existing.answers = answersArr.slice(); existing.lockedSections = (lockedSections || []).slice(); existing.updatedAt = Date.now(); }
+  else { DB.drafts = [...DB.drafts, { id: uid(), setId, studentName, answers: answersArr.slice(), lockedSections: (lockedSections || []).slice(), updatedAt: Date.now() }]; }
+  saveDrafts();
+}
+function deleteDraft(setId, studentName){
+  DB.drafts = DB.drafts.filter(d => !(d.setId === setId && d.studentName === studentName));
+  saveDrafts();
+}
+// 検出結果を既存の答えにマージする（続き採点用）。新しい読み取りで判定できた
+// 問題はその値を採用し、判定できなかった（null）問題は前回までの値を残す。
+// これにより「1回目は途中まで解いて採点→2回目で続きを採点」を、点数の
+// 足し算ではなく完全な答えの再採点として自然に扱える（順不同グループが
+// 2回に分かれても正しく採点できる）。
+function mergeDetectedAnswers(current, incoming){
+  const base = (current && current.length === TOTAL_Q) ? current : Array(TOTAL_Q).fill(null);
+  return incoming.map((v, i) => (v !== null && v !== undefined) ? v : base[i]);
+}
+function getGeminiKey(){ try{ return localStorage.getItem('msg2_gemini_key') || ''; }catch(e){ return ''; } }
+function setGeminiKey(k){ try{ localStorage.setItem('msg2_gemini_key', k); }catch(e){} }
+function getClaudeKey(){ try{ return localStorage.getItem('msg2_claude_key') || ''; }catch(e){ return ''; } }
+function setClaudeKey(k){ try{ localStorage.setItem('msg2_claude_key', k); }catch(e){} }
+
+// ---- robust answer-text parsing ----
+const CIRCLED_MAP = { '⓪':'0','①':'1','②':'2','③':'3','④':'4','⑤':'5','⑥':'6','⑦':'7','⑧':'8','⑨':'9' };
+function parseAnswerText(text, baseAnswerKey, basePoints){
+  const pairs = new Map();  // question number (1-indexed) -> raw answer char
+  const pts = new Map();    // question number -> points (only when explicitly given)
+  let workText = text || '';
+
+  // triple format first: "問1:4:2" / "1:4:2" (answer + points), so the plain pair
+  // regexes below don't also partially match the same substring.
+  const reTriple = /(?:問)?\s*(\d{1,3})\s*[:：]\s*([⓪①②③④⑤⑥⑦⑧⑨0-9a-zA-Z])\s*[:：]\s*(\d{1,3})/g;
+  let m;
+  while ((m = reTriple.exec(workText)) !== null) {
+    const qn = parseInt(m[1], 10);
+    pairs.set(qn, m[2]);
+    pts.set(qn, parseInt(m[3], 10));
   }
-};
+  workText = workText.replace(reTriple, ' ');
 
-const LS_CUSTOM = "kyoteCheckApp_customItems";
-const LS_RECORDS = "kyoteCheckApp_records";
-const LS_OPENSTATE = "kyoteCheckApp_openCats";
-const LS_STUDENTS = "kyoteCheckApp_studentNames";
-const LS_LAST_STUDENT = "kyoteCheckApp_lastStudent";
+  const reCircled = /(?:問)?\s*(\d{1,3})\s*[番号]?\s*([⓪①②③④⑤⑥⑦⑧⑨])/g;
+  const reColon = /(?:問)?\s*(\d{1,3})\s*[:：]\s*([0-9a-zA-Z])/g;
+  while ((m = reCircled.exec(workText)) !== null) { const qn = parseInt(m[1], 10); if (!pairs.has(qn)) pairs.set(qn, m[2]); }
+  while ((m = reColon.exec(workText)) !== null) { const qn = parseInt(m[1], 10); if (!pairs.has(qn)) pairs.set(qn, m[2]); }
 
-function loadStudentNames(){
-  try{ return JSON.parse(localStorage.getItem(LS_STUDENTS)) || []; }
-  catch(e){ return []; }
-}
-function saveStudentNames(list){ localStorage.setItem(LS_STUDENTS, JSON.stringify(list)); }
-function addKnownStudentName(name){
-  let list = loadStudentNames();
-  if(!list.includes(name)){
-    list.push(name);
-    saveStudentNames(list);
-  }
-  localStorage.setItem(LS_LAST_STUDENT, name);
-}
-function populateStudentDatalist(){
-  const dl = document.getElementById('studentNameList');
-  dl.innerHTML = loadStudentNames().map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
-}
+  const next = baseAnswerKey.slice();
+  const nextPoints = (basePoints || Array(TOTAL_Q).fill(0)).slice();
+  const unresolved = [];
+  let count = 0;
 
-function loadCustom(){
-  try{ return JSON.parse(localStorage.getItem(LS_CUSTOM)) || {"英語":{}, "国語":{}}; }
-  catch(e){ return {"英語":{}, "国語":{}}; }
-}
-function saveCustom(data){ localStorage.setItem(LS_CUSTOM, JSON.stringify(data)); }
-
-function loadRecords(){
-  try{ return JSON.parse(localStorage.getItem(LS_RECORDS)) || []; }
-  catch(e){ return []; }
-}
-function saveRecords(recs){ localStorage.setItem(LS_RECORDS, JSON.stringify(recs)); }
-
-let customItems = loadCustom();
-let records = loadRecords();
-let currentSubject = "英語";
-let openCats = {}; // category name -> bool
-
-/* カテゴリごとの色分け（見やすさのため） */
-const CAT_PALETTE = ["#2563eb","#16a34a","#d97706","#dc2626","#7c3aed","#0891b2","#db2777","#65a30d"];
-function categoryColor(subject, catName){
-  const cats = getAllCategories(subject);
-  const idx = Object.keys(cats).indexOf(catName);
-  return CAT_PALETTE[(idx < 0 ? 0 : idx) % CAT_PALETTE.length];
-}
-
-/* current in-progress check state: {category: {item: {checked:bool, note:string}}} */
-let checkState = {};
-
-function resetCheckState(){
-  checkState = {};
-}
-
-function getAllCategories(subject){
-  const base = DEFAULT_DATA[subject];
-  const cust = customItems[subject] || {};
-  const cats = {};
-  Object.keys(base).forEach(c => { cats[c] = base[c].slice(); });
-  Object.keys(cust).forEach(c => {
-    if(!cats[c]) cats[c] = [];
-    cust[c].forEach(it => { if(!cats[c].includes(it)) cats[c].push(it); });
-  });
-  return cats;
-}
-
-/* ================= 記録する VIEW 描画 ================= */
-function renderCategoryList(){
-  const container = document.getElementById('categoryList');
-  container.innerHTML = "";
-  const cats = getAllCategories(currentSubject);
-  const custForSubject = customItems[currentSubject] || {};
-
-  Object.keys(cats).forEach(catName => {
-    const items = cats[catName];
-    const color = categoryColor(currentSubject, catName);
-    const div = document.createElement('div');
-    div.className = 'category';
-    div.style.borderLeftColor = color;
-    if(openCats[catName]) div.classList.add('open');
-
-    const checkedCountInCat = items.filter(it => checkState[catName] && checkState[catName][it] && checkState[catName][it].checked).length;
-
-    const head = document.createElement('div');
-    head.className = 'category-head';
-    head.innerHTML = `<span class="category-title"><span class="cat-dot" style="background:${color}"></span>${catName}</span>
-      <span><span class="category-count ${checkedCountInCat>0?'has':''}" id="cnt_${cssSafe(catName)}" style="${checkedCountInCat>0?`background:${color};`:''}">${checkedCountInCat}</span> <span class="chevron">▶</span></span>`;
-    head.addEventListener('click', () => {
-      div.classList.toggle('open');
-      openCats[catName] = div.classList.contains('open');
+  if (pairs.size > 0) {
+    pairs.forEach((rawCh, qn) => {
+      count++;
+      const ch = CIRCLED_MAP[rawCh] || rawCh;
+      const idx = CHOICE_LABELS.findIndex(l => l.toLowerCase() === String(ch).toLowerCase());
+      if (qn >= 1 && qn <= TOTAL_Q && idx >= 0) {
+        next[qn - 1] = idx;
+        if (pts.has(qn)) nextPoints[qn - 1] = pts.get(qn);
+      } else unresolved.push(qn);
     });
-    div.appendChild(head);
+    return { next, points: nextPoints, unresolved, count, pointsFound: pts.size, pointsSet: new Set(pts.keys()), mode: 'labeled' };
+  }
 
-    const body = document.createElement('div');
-    body.className = 'category-body';
+  // fallback: plain sequential list, fills from question 1 onward
+  const tokens = text.split(/[,、\s\n]+/).map(t => t.trim()).filter(Boolean);
+  const seqNext = Array(TOTAL_Q).fill(null);
+  const seqUnresolved = [];
+  tokens.slice(0, TOTAL_Q).forEach((tok, i) => {
+    const ch = CIRCLED_MAP[tok] || tok;
+    const idx = CHOICE_LABELS.findIndex(l => l.toLowerCase() === ch.toLowerCase());
+    if (idx >= 0) seqNext[i] = idx; else seqUnresolved.push(i + 1);
+  });
+  return { next: seqNext, points: (basePoints || Array(TOTAL_Q).fill(0)).slice(), unresolved: seqUnresolved, count: tokens.length, pointsFound: 0, pointsSet: new Set(), mode: 'sequential' };
+}
 
-    items.forEach(itemText => {
-      const isCustom = (custForSubject[catName] || []).includes(itemText);
-      const row = document.createElement('div');
-      row.className = 'item';
-      const cid = 'chk_' + cssSafe(catName) + '_' + cssSafe(itemText);
-      const state = (checkState[catName] && checkState[catName][itemText]) || null;
-      const checked = !!(state && state.checked);
+const UI = { view: 'home' };
+let NS = null; // new-answer-set screen state
+let GR = null; // grade screen state
+const HISTORY_OPEN = { name: null, recId: null };
+const HISTORY_SORT = { mode: 'recent' }; // 'recent' | 'name' | 'score_desc' | 'score_asc'
 
-      row.innerHTML = `
-        <input type="checkbox" id="${cid}" ${checked ? 'checked' : ''}>
-        <label for="${cid}">${escapeHtml(itemText)}${isCustom ? '<span class="custom-tag">追加</span>' : ''}</label>
-        ${isCustom ? '<span class="del-custom">削除</span>' : ''}
-      `;
+const TOTAL_Q = 55;
+const CHOICE_LABELS = GEOMETRY.choiceLabels; // ['0'..'9']
 
-      const cb = row.querySelector('input[type=checkbox]');
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function uniqueNames(){ return [...new Set(DB.records.map(r => r.studentName))]; }
 
-      /* この項目専用の自由記入欄（対策・次に気をつけること） */
-      const awaWrap = document.createElement('div');
-      awaWrap.className = 'item-awa' + (checked ? ' show' : '');
-      const existingNote = state && typeof state.note === 'string' ? state.note : "";
-      awaWrap.innerHTML = `<textarea placeholder="次に気をつけること・対策を自分で記入（任意）">${escapeHtml(existingNote)}</textarea>`;
-      const awaInput = awaWrap.querySelector('textarea');
+// ---- まとめて採点するグループ（任意で合計配点も指定できる: "27-28:3"） ----
+// 2種類ある：
+//   ・順不同グループ（デフォルト。既存データとの後方互換のため無印＝これ）：
+//     グループ内の正解を「集合」として比較する。どの解答欄にどの正解が入っていても、
+//     全部の正解が過不足なく揃っていれば満点（位置の入れ替えOK）。
+//     例：「30-31」→ 解答表で正解が②-①のようにハイフンでつながっている＝順序を問わない。
+//   ・順序通りグループ（範囲の直後に「順」を付ける。例："9-12順:3"）：
+//     グループ内の各解答欄はそれぞれ決まった正解を持ち、その位置のまま全部一致して
+//     初めて満点（全部正解のみ加点＝all-or-nothingだが、位置の入れ替えは不可）。
+//     例：「9-12」を解答表の※（全部正解の場合のみ点を与える）注釈と一緒に見た場合。
+function parseGroupsText(text){
+  const groups = [];
+  (text || '').split(/[,、\n]+/).map(s => s.trim()).filter(Boolean).forEach(tok => {
+    const m = tok.match(/^(\d+)\s*[-〜~－]\s*(\d+)\s*(順|order)?\s*(?:[:：]\s*(\d+))?$/);
+    if (!m) return;
+    let a = parseInt(m[1], 10) - 1, b = parseInt(m[2], 10) - 1;
+    if (a > b) { const t = a; a = b; b = t; }
+    if (a < 0 || b >= TOTAL_Q) return;
+    const qs = [];
+    for (let i = a; i <= b; i++) qs.push(i);
+    if (qs.length >= 2) groups.push({ qs, points: m[4] ? parseInt(m[4], 10) : null, order: !!m[3] });
+  });
+  return groups;
+}
+function groupsToText(groups){
+  return (groups || []).map(g => `${g.qs[0] + 1}-${g.qs[g.qs.length - 1] + 1}${g.order ? '順' : ''}` + (g.points != null ? `:${g.points}` : '')).join(', ');
+}
+const serializeGroups = groupsToText;
+function groupIndexOfQuestion(groups, qi){
+  for (let gi = 0; gi < (groups || []).length; gi++) if (groups[gi].qs.indexOf(qi) !== -1) return gi;
+  return -1;
+}
 
-      const ensureState = () => {
-        if(!checkState[catName]) checkState[catName] = {};
-        if(!checkState[catName][itemText]){
-          checkState[catName][itemText] = {checked:false, note:""};
-        }
-        return checkState[catName][itemText];
+// ---- 配点（1問ごとの点数。省略時は全問1点） ----
+function parsePointsText(text, count){
+  const arr = Array(count).fill(0);
+  const tokens = (text || '').split(/[,、\s\n]+/).map(t => t.trim()).filter(Boolean);
+  tokens.slice(0, count).forEach((tok, i) => {
+    const n = parseInt(tok, 10);
+    if (!isNaN(n) && n >= 0) arr[i] = n;
+  });
+  return arr;
+}
+function pointsToText(points){ return (points || []).join(','); }
+function compressToRanges(nums){
+  if (!nums || nums.length === 0) return '';
+  const sorted = nums.slice().sort((a, b) => a - b);
+  const parts = [];
+  let start = sorted[0], prev = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    const cur = sorted[i];
+    if (cur === prev + 1) { prev = cur; continue; }
+    parts.push(start === prev ? `${start}` : `${start}〜${prev}`);
+    if (i < sorted.length) { start = cur; prev = cur; }
+  }
+  return parts.join(', ');
+}
+function groupPoints(g, points){ return g.points != null ? g.points : g.qs.reduce((s, qi) => s + (points[qi] || 0), 0); }
+
+// 大問（セクション）ごとの配点を、正解の登録有無に関係なく「配点＋グループ設定」だけから
+// 自動計算する（セット登録画面用）。グループが大問をまたぐ場合は、そのグループの
+// 最初の問題が属する大問にまとめて計上する。
+function computeSectionPointTotals(sections, groups, points){
+  const groupedIdxSet = new Set();
+  (groups || []).forEach(g => g.qs.forEach(qi => groupedIdxSet.add(qi)));
+  const groupOwnerSection = (groups || []).map(g => sections.findIndex(sec => sec.qs.includes(g.qs[0])));
+  const perSection = sections.map((sec, si) => {
+    let total = sec.qs.reduce((s, qi) => s + (groupedIdxSet.has(qi) ? 0 : (points[qi] || 0)), 0);
+    (groups || []).forEach((g, gi) => { if (groupOwnerSection[gi] === si) total += groupPoints(g, points); });
+    return { label: sec.label, qs: sec.qs, total };
+  });
+  const coveredIdx = new Set();
+  sections.forEach(sec => sec.qs.forEach(qi => coveredIdx.add(qi)));
+  const uncovered = [];
+  for (let i = 0; i < points.length; i++) { if (!coveredIdx.has(i)) uncovered.push(i + 1); }
+  return { perSection, uncovered };
+}
+
+// ---- 大問区切り（採点結果の小計表示用。順不同グループとは別） ----
+function parseSectionsText(text){
+  const sections = [];
+  (text || '').split(/[,、\n]+/).map(s => s.trim()).filter(Boolean).forEach(tok => {
+    const m = tok.match(/^(?:(.*?)[:：])?\s*(\d{1,3})\s*[-〜~－]\s*(\d{1,3})$/);
+    if (!m) return;
+    let a = parseInt(m[2], 10) - 1, b = parseInt(m[3], 10) - 1;
+    if (a > b) { const t = a; a = b; b = t; }
+    if (a < 0 || b >= TOTAL_Q) return;
+    const qs = [];
+    for (let i = a; i <= b; i++) qs.push(i);
+    sections.push({ label: m[1] ? m[1].trim() : `大問${sections.length + 1}`, qs });
+  });
+  return sections;
+}
+function sectionsToText(sections){
+  return (sections || []).map(s => `${s.label}:${s.qs[0] + 1}-${s.qs[s.qs.length - 1] + 1}`).join(', ');
+}
+// per-question earned/possible points, with grouped questions' full point value
+// attributed to the first member only (so summing over any range is correct).
+function computeEarnedPossible(set, answers){
+  const groups = set.groups || [];
+  const points = set.points || Array(TOTAL_Q).fill(0);
+  const inGroup = new Array(TOTAL_Q).fill(-1);
+  groups.forEach((g, gi) => g.qs.forEach(qi => { inGroup[qi] = gi; }));
+  const earned = new Array(TOTAL_Q).fill(0);
+  const possible = new Array(TOTAL_Q).fill(0);
+  const handled = new Set();
+  for (let i = 0; i < TOTAL_Q; i++) {
+    const gi = inGroup[i];
+    if (gi !== -1) {
+      if (handled.has(gi)) continue;
+      handled.add(gi);
+      const g = groups[gi];
+      if (g.qs.some(qi => set.answerKey[qi] === null)) continue;
+      const gp = groupPoints(g, points);
+      const allMarked = g.qs.every(qi => answers[qi] !== null && answers[qi] !== undefined);
+      const match = allMarked && (g.order
+        ? g.qs.every(qi => answers[qi] === set.answerKey[qi])
+        : JSON.stringify(g.qs.map(qi => set.answerKey[qi]).slice().sort()) === JSON.stringify(g.qs.map(qi => answers[qi]).slice().sort()));
+      possible[g.qs[0]] = gp;
+      earned[g.qs[0]] = match ? gp : 0;
+    } else {
+      if (set.answerKey[i] === null) continue;
+      possible[i] = points[i];
+      earned[i] = (answers[i] !== null && answers[i] !== undefined && answers[i] === set.answerKey[i]) ? points[i] : 0;
+    }
+  }
+  return { earned, possible };
+}
+function computeSectionSubtotals(set, answers){
+  const sections = set.sections || [];
+  if (!sections.length) return [];
+  const { earned, possible } = computeEarnedPossible(set, answers);
+  return sections.map(sec => ({
+    label: sec.label,
+    score: sec.qs.reduce((s, qi) => s + earned[qi], 0),
+    total: sec.qs.reduce((s, qi) => s + possible[qi], 0),
+  }));
+}
+
+function scoreSet(set, answers){
+  const groups = set.groups || [];
+  const points = set.points || Array(TOTAL_Q).fill(0);
+  const inGroup = new Array(TOTAL_Q).fill(-1);
+  groups.forEach((g, gi) => g.qs.forEach(qi => { inGroup[qi] = gi; }));
+  const flags = new Array(TOTAL_Q).fill('skip');
+  let score = 0, total = 0;
+  const handled = new Set();
+  for (let i = 0; i < TOTAL_Q; i++) {
+    const gi = inGroup[i];
+    if (gi !== -1) {
+      if (handled.has(gi)) continue;
+      handled.add(gi);
+      const g = groups[gi];
+      const gp = groupPoints(g, points);
+      if (g.qs.some(qi => set.answerKey[qi] === null)) { g.qs.forEach(qi => { flags[qi] = 'skip'; }); continue; }
+      total += gp;
+      const allMarked = g.qs.every(qi => answers[qi] !== null && answers[qi] !== undefined);
+      const match = allMarked && (g.order
+        ? g.qs.every(qi => answers[qi] === set.answerKey[qi])
+        : JSON.stringify(g.qs.map(qi => set.answerKey[qi]).slice().sort()) === JSON.stringify(g.qs.map(qi => answers[qi]).slice().sort()));
+      if (match) score += gp;
+      g.qs.forEach(qi => { flags[qi] = match ? 'ok' : 'ng'; });
+    } else {
+      if (set.answerKey[i] === null) { flags[i] = 'skip'; continue; }
+      total += points[i];
+      const ok = answers[i] !== null && answers[i] !== undefined && answers[i] === set.answerKey[i];
+      if (ok) score += points[i];
+      flags[i] = ok ? 'ok' : 'ng';
+    }
+  }
+  return { score, total, flags };
+}
+
+// ---- multi-vote merge (used for double/triple AI cross-checking) ----
+// voteArrays: array of Array(totalQ) where each entry is a choice-index or null.
+// A question is accepted only if the most common non-null value reaches a
+// majority of the voters (2/2 for double, 2/3 for triple). Anything short of
+// that is left blank and reported back so the person can check it by hand.
+function mergeVotes(voteArrays, totalQ){
+  const n = voteArrays.length;
+  const threshold = Math.floor(n / 2) + 1;
+  const merged = Array(totalQ).fill(null);
+  const disagreements = [];
+  for (let i = 0; i < totalQ; i++) {
+    const vals = voteArrays.map(v => v[i]).filter(v => v !== null && v !== undefined);
+    if (vals.length === 0) continue;
+    const counts = {};
+    vals.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+    let bestVal = null, bestCount = 0;
+    Object.keys(counts).forEach(k => { if (counts[k] > bestCount) { bestCount = counts[k]; bestVal = Number(k); } });
+    if (bestCount >= threshold) merged[i] = bestVal;
+    else disagreements.push(i + 1);
+  }
+  return { merged, disagreements };
+}
+
+// ---- homography (4-point perspective transform) ----
+function solveLinear(A, b){
+  const n = b.length;
+  const M = A.map((row, i) => row.concat([b[i]]));
+  for (let col = 0; col < n; col++) {
+    let maxRow = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[maxRow][col])) maxRow = r;
+    const tmp = M[col]; M[col] = M[maxRow]; M[maxRow] = tmp;
+    const pivot = M[col][col];
+    for (let c = col; c <= n; c++) M[col][c] /= pivot;
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const factor = M[r][col];
+      for (let c = col; c <= n; c++) M[r][c] -= factor * M[col][c];
+    }
+  }
+  return M.map(row => row[n]);
+}
+function computeHomography(src, dst){
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i], [X, Y] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -x * X, -y * X]); b.push(X);
+    A.push([0, 0, 0, x, y, 1, -x * Y, -y * Y]); b.push(Y);
+  }
+  const h = solveLinear(A, b);
+  return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1];
+}
+function applyHomography(H, x, y){
+  const denom = H[6] * x + H[7] * y + 1;
+  return [(H[0] * x + H[1] * y + H[2]) / denom, (H[3] * x + H[4] * y + H[5]) / denom];
+}
+
+// ---- tiny DOM helper ----
+function el(tag, attrs, children){
+  const e = document.createElement(tag);
+  attrs = attrs || {};
+  for (const k in attrs){
+    const v = attrs[k];
+    if (v == null) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'style' && typeof v === 'object') Object.assign(e.style, v);
+    else if (k.indexOf('on') === 0 && typeof v === 'function') e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  (children == null ? [] : Array.isArray(children) ? children : [children]).forEach(c => {
+    if (c == null) return;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  });
+  return e;
+}
+
+// ============================================================
+// RENDER ROOT
+// ============================================================
+function render(){
+  const app = document.getElementById('app');
+  try {
+    app.innerHTML = '';
+    app.appendChild(renderHeader());
+    const body = el('div', { class: 'body' });
+    if (UI.view === 'home') body.appendChild(renderHome());
+    else if (UI.view === 'newSet') body.appendChild(renderNewSet());
+    else if (UI.view === 'grade') body.appendChild(renderGrade());
+    else if (UI.view === 'history') body.appendChild(renderHistory());
+    app.appendChild(body);
+    if (UI.view !== 'newSet') app.appendChild(renderNav());
+  } catch (err) {
+    app.innerHTML = '';
+    const box = el('div', { style: { padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' } });
+    box.appendChild(el('div', { style: { fontWeight: '700', color: 'var(--red)', fontSize: '14px' } }, 'エラーが発生しました'));
+    box.appendChild(el('div', { style: { fontSize: '12px', color: 'var(--inkSoft)', lineHeight: '1.6' } }, 'この内容をそのままコピーしてClaudeに送ってください。原因を特定できます。'));
+    const pre = document.createElement('pre');
+    pre.style.cssText = 'white-space:pre-wrap;font-size:11px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;color:var(--ink);';
+    pre.textContent = (err && err.stack) ? err.stack : String(err);
+    box.appendChild(pre);
+    box.appendChild(el('button', { class: 'btn btn-secondary', onclick: () => {
+      if (confirm('保存データを初期化してホームに戻ります。よろしいですか？')) {
+        try { localStorage.removeItem('msg2_sets'); localStorage.removeItem('msg2_records'); } catch (e) {}
+        DB.sets = []; DB.records = []; UI.view = 'home';
+        render();
+      }
+    } }, '保存データを初期化してやり直す（正解セット・記録が消えます）'));
+    app.appendChild(box);
+  }
+}
+const TITLES = { home: '専用マークシート採点', newSet: '正解を登録', grade: '採点する', history: '記録' };
+const APP_BUILD = '2026-09-09.1'; // 更新のたびに増やす（今どの版を見ているか一目でわかるように）
+
+function renderHeader(){
+  const h = el('div', { class: 'header' });
+  if (UI.view === 'newSet') h.appendChild(el('button', { class: 'back', onclick: () => { UI.view = 'home'; render(); } }, '←'));
+  else h.appendChild(el('div', { class: 'dot' }, el('i')));
+  h.appendChild(el('div', { class: 'title' }, TITLES[UI.view]));
+  h.appendChild(el('div', { style: { marginLeft: 'auto', fontSize: '9.5px', color: 'var(--inkFaint)', fontFamily: 'ui-monospace,monospace' } }, `v${APP_BUILD}`));
+  return h;
+}
+function renderNav(){
+  const nav = el('div', { class: 'nav' });
+  [['home','🏠','ホーム'], ['grade','📷','採点する'], ['history','🕘','記録']].forEach(([v, ic, lb]) => {
+    const b = el('button', { class: UI.view === v ? 'active' : '', onclick: () => { UI.view = v; render(); } });
+    b.appendChild(el('div', { class: 'ic' }, ic));
+    b.appendChild(el('div', { class: 'lb' }, lb));
+    nav.appendChild(b);
+  });
+  return nav;
+}
+function stepHeader(n, title, hint){
+  const w = el('div');
+  const row = el('div', { class: 'step-row' });
+  row.appendChild(el('div', { class: 'badge' }, String(n)));
+  row.appendChild(el('div', { class: 'step-title' }, title));
+  w.appendChild(row);
+  if (hint) w.appendChild(el('div', { class: 'step-hint' }, hint));
+  return w;
+}
+function statBox(v, l){
+  const b = el('div', { class: 'stat' });
+  b.appendChild(el('div', { class: 'v' }, String(v)));
+  b.appendChild(el('div', { class: 'l' }, l));
+  return b;
+}
+
+// ============================================================
+// HOME
+// ============================================================
+function renderHome(){
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } });
+  const stats = el('div', { style: { display: 'flex', gap: '10px' } });
+  stats.appendChild(statBox(DB.sets.length, '正解セット'));
+  stats.appendChild(statBox(DB.records.length, '採点記録'));
+  stats.appendChild(statBox(uniqueNames().length, '生徒'));
+  wrap.appendChild(stats);
+
+  wrap.appendChild(el('div', { class: 'notice-blue' }, 'このアプリは「55問・選択肢0〜9・2列」の専用マークシート専用です。用紙の4隅の黒いマークをタップするだけで全問の位置を自動計算します。'));
+
+  wrap.appendChild(el('button', { class: 'btn btn-primary', onclick: () => { enterNewSet(null); render(); } }, '＋ 新しい正解セットを登録'));
+  wrap.appendChild(el('div', { style: { fontSize: '11.5px', fontWeight: '700', color: 'var(--inkSoft)' } }, '正解セット一覧'));
+
+  if (DB.sets.length === 0) {
+    wrap.appendChild(el('div', { class: 'empty' }, 'まだ正解セットがありません。上のボタンから登録してください。'));
+  } else {
+    const list = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } });
+    DB.sets.forEach(s => {
+      const missing = s.answerKey.filter(a => a === null).length;
+      const row = el('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px' } });
+      const info = el('div', { style: { flex: '1', minWidth: '0' } });
+      info.appendChild(el('div', { style: { fontSize: '13.5px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, s.name));
+      const pts = s.points || Array(TOTAL_Q).fill(0);
+      const gset = new Set(); (s.groups || []).forEach(g => g.qs.forEach(qi => gset.add(qi)));
+      const totalPts = (s.groups || []).reduce((sum, g) => sum + groupPoints(g, pts), 0) + pts.reduce((sum, p, i) => sum + (gset.has(i) ? 0 : p), 0);
+      info.appendChild(el('div', { style: { fontSize: '11.5px', color: 'var(--inkSoft)' } }, `55問・0〜9・${totalPts}点満点` + (s.groups && s.groups.length ? ` ・グループ${s.groups.length}箇所（順不同${s.groups.filter(g => !g.order).length}／順序通り${s.groups.filter(g => g.order).length}）` : '')));
+      if (missing > 0) info.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--red)', fontWeight: '700', marginTop: '2px' } }, `正解が未入力：${missing}問`));
+      row.appendChild(info);
+      row.appendChild(el('button', { class: 'iconbtn', onclick: () => { enterNewSet(s.id); render(); } }, '✎'));
+      row.appendChild(el('button', { class: 'iconbtn', onclick: () => { DB.sets = DB.sets.filter(x => x.id !== s.id); saveSets(); render(); } }, '🗑'));
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+  }
+
+  if (DB.sets.length > 0) {
+    wrap.appendChild(el('button', { class: 'btn btn-danger', onclick: () => { UI.view = 'grade'; GR = null; render(); } }, '📷 写真から採点する'));
+  }
+  return wrap;
+}
+
+// ============================================================
+// CORNER-CALIBRATED PHOTO READER (shared: registration & grading)
+// ============================================================
+// photoState: { img, w, h, corners:[{x,y}...], loadError:'' }
+function mapBubblesToPixels(corners){
+  const src = GEOMETRY.frame;                       // 4 known template-space corners (TL,TR,BR,BL)
+  const dst = corners.map(p => [p.x, p.y]);          // 4 tapped pixel points, same order
+  const H = computeHomography(src, dst);
+  return GEOMETRY.bubbles.map(row => row.map(([fx, fy]) => {
+    const [px, py] = applyHomography(H, fx, fy);
+    return { x: px, y: py };
+  }));
+}
+function detectFromPixels(img, w, h, pixelGrid){
+  const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+  const ctx = tmp.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+  function sample(x, y){
+    const size = 9, half = 4;
+    const sx = Math.max(0, Math.min(w - size, Math.round(x - half)));
+    const sy = Math.max(0, Math.min(h - size, Math.round(y - half)));
+    const data = ctx.getImageData(sx, sy, size, size).data;
+    let sum = 0, n = 0;
+    for (let i = 0; i < data.length; i += 4) { sum += data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114; n++; }
+    return sum / n;
+  }
+  return pixelGrid.map(row => {
+    const vals = row.map(p => sample(p.x, p.y));
+    let minI = 0; for (let i = 1; i < vals.length; i++) if (vals[i] < vals[minI]) minI = i;
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return (avg - vals[minI] > 28) ? minI : null;
+  });
+}
+
+const CORNER_LABELS = ['①左上の黒いマーク', '②右上の黒いマーク', '③右下の黒いマーク', '④左下の黒いマーク'];
+
+// ---- タップ位置の拡大ルーペ（スマホでの4隅タップ精度対策） ----
+// 指で押している間、押している場所を指の少し上に拡大表示し、指を離した瞬間の
+// 位置を確定タップ座標として扱う（指自体でマークが隠れてしまう問題を回避する）。
+// マウス操作（PC）では表示しない（すでに精密にタップできるため不要）。
+let _magnifierEl = null;
+function getMagnifier(){
+  if (_magnifierEl) return _magnifierEl;
+  const size = 132;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const canvas = document.createElement('canvas');
+  canvas.width = size * dpr; canvas.height = size * dpr;
+  canvas.style.cssText = `position:fixed;width:${size}px;height:${size}px;border-radius:50%;border:3px solid #2E7FD8;box-shadow:0 4px 16px rgba(0,0,0,0.35);pointer-events:none;z-index:9999;display:none;background:#fff;`;
+  document.body.appendChild(canvas);
+  _magnifierEl = canvas;
+  return canvas;
+}
+function showMagnifier(sourceCanvas, imgX, imgY, dispW, dispH, clientX, clientY){
+  const mag = getMagnifier();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const size = mag.width / dpr; // CSS表示サイズ（px）
+  const ctx = mag.getContext('2d');
+  ctx.save();
+  ctx.clearRect(0, 0, mag.width, mag.height);
+  ctx.beginPath(); ctx.arc(mag.width / 2, mag.height / 2, mag.width / 2, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, mag.width, mag.height);
+  const half = Math.max(10, dispW * 0.018); // 元画像から切り出す範囲（狭いほど高倍率）
+  const sx = Math.max(0, Math.min(dispW - half * 2, imgX - half));
+  const sy = Math.max(0, Math.min(dispH - half * 2, imgY - half));
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sourceCanvas, sx, sy, half * 2, half * 2, 0, 0, mag.width, mag.height);
+  ctx.restore();
+  // 中心の十字線＝実際にタップが確定する座標
+  const cx = mag.width / 2, cy = mag.height / 2, r = 9 * dpr;
+  ctx.strokeStyle = 'rgba(216,54,43,0.9)'; ctx.lineWidth = 1.6 * dpr;
+  ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  // 指に隠れないよう、押している場所の少し上に表示（画面上端付近なら下に出す）
+  let left = clientX - size / 2;
+  let top = clientY - size - 44;
+  left = Math.max(6, Math.min(window.innerWidth - size - 6, left));
+  if (top < 6) top = clientY + 44;
+  mag.style.left = left + 'px'; mag.style.top = top + 'px'; mag.style.display = 'block';
+}
+function hideMagnifier(){ if (_magnifierEl) _magnifierEl.style.display = 'none'; }
+
+// タップした点の近くを軽く探索し、実際の黒い照準マーク（塗りつぶし四角）の重心に
+// 自動で吸着させる。単純な重心ではなく「タップ点に一番近い、閾値以下の連結した
+// 黒い塊（Connected Component）」を探す方式にすることで、写真の背景（机の木目や
+// 影など）がたまたま窓内に写り込んでも、そちらに重心を引っ張られにくくしている。
+// 塊が大きすぎる（机など）・小さすぎる（ノイズ）場合や、見つからない場合は
+// 元のタップ位置にそのままフォールバックする。
+function snapToNearestMarker(img, w, h, x, y){
+  const win = Math.max(10, Math.round(w * 0.028)); // 探索半径（写真幅の約2.8%・前回の5%より縮小）
+  const sx = Math.max(0, Math.round(x - win));
+  const sy = Math.max(0, Math.round(y - win));
+  const ex = Math.min(w, Math.round(x + win));
+  const ey = Math.min(h, Math.round(y + win));
+  const ww = ex - sx, hh = ey - sy;
+  if (ww <= 2 || hh <= 2) return { x, y };
+  const tmp = document.createElement('canvas'); tmp.width = ww; tmp.height = hh;
+  const ctx = tmp.getContext('2d');
+  ctx.drawImage(img, sx, sy, ww, hh, 0, 0, ww, hh);
+  const data = ctx.getImageData(0, 0, ww, hh).data;
+  const n = ww * hh;
+  const lum = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const idx = i * 4;
+    lum[i] = data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+  }
+  // 絶対的なしきい値（印字の黒マーカーを想定・机の影程度の暗さでは超えないよう厳しめ）
+  const threshold = 95;
+  const isDark = i => lum[i] < threshold;
+
+  // タップ点に最も近い「暗い画素」をシード（探索の起点）にする
+  const cx = Math.round(x - sx), cy = Math.round(y - sy);
+  let seed = -1, seedDist = Infinity;
+  for (let py = 0; py < hh; py++) {
+    for (let px = 0; px < ww; px++) {
+      const i = py * ww + px;
+      if (isDark(i)) {
+        const d = (px - cx) * (px - cx) + (py - cy) * (py - cy);
+        if (d < seedDist) { seedDist = d; seed = i; }
+      }
+    }
+  }
+  if (seed === -1) return { x, y }; // 暗い画素が見つからない → タップ位置のまま
+
+  // シードから幅優先探索（BFS）で連結した暗い塊だけを取り出す
+  const visited = new Uint8Array(n);
+  const queue = [seed]; visited[seed] = 1;
+  let qi = 0, sumX = 0, sumY = 0, count = 0;
+  while (qi < queue.length) {
+    const i = queue[qi++];
+    const px = i % ww, py = (i / ww) | 0;
+    sumX += px; sumY += py; count++;
+    if (px > 0) { const ni = i - 1; if (!visited[ni] && isDark(ni)) { visited[ni] = 1; queue.push(ni); } }
+    if (px < ww - 1) { const ni = i + 1; if (!visited[ni] && isDark(ni)) { visited[ni] = 1; queue.push(ni); } }
+    if (py > 0) { const ni = i - ww; if (!visited[ni] && isDark(ni)) { visited[ni] = 1; queue.push(ni); } }
+    if (py < hh - 1) { const ni = i + ww; if (!visited[ni] && isDark(ni)) { visited[ni] = 1; queue.push(ni); } }
+  }
+  const maxBlob = n * 0.4;  // 大きすぎる塊（机・大きな影など）は却下
+  const minBlob = 4;        // 小さすぎる（ノイズ）ものも却下
+  if (count < minBlob || count > maxBlob) return { x, y };
+  return { x: sx + sumX / count, y: sy + sumY / count };
+}
+
+function renderCornerPhotoReader(cfg){
+  const { answers, setAnswers, groups, photoState, dotColor } = cfg;
+  const mergeAnswers = cfg.mergeAnswers || setAnswers; // 継続採点を使わない画面（正解登録）は overwrite と同じ
+  const onCalibrated = cfg.onCalibrated || null; // タップ確定時にファイル＋タップ判定結果を通知（AI照合との組み合わせ用）
+  const highlightQs = cfg.highlightQs || null; // 大問を選んでいる時、その大問の問題だけ赤丸を表示する（nullなら全問表示）
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } });
+
+  function handlePhotoFile(file){
+    photoState.loadError = '';
+    if (!file.type || file.type.indexOf('image/') !== 0) { photoState.loadError = '画像ファイルを選んでください。'; render(); return; }
+    const reader = new FileReader();
+    reader.onerror = () => { photoState.loadError = 'ファイルを読み込めませんでした。もう一度お試しください。'; render(); };
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => { photoState.loadError = '画像として開けませんでした。別の写真でお試しください。'; render(); };
+      img.onload = () => {
+        const maxDim = 1800;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (Math.max(w, h) > maxDim) { const s = maxDim / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+        photoState.img = img; photoState.w = w; photoState.h = h; photoState.file = file;
+        photoState.corners = [];
+        // 直前までの採点結果（続き採点で積み上げた分・他の大問の分）を消さないよう、
+        // ここでは answers を触らずに再描画だけする。実際の反映は4隅タップ完了後の
+        // mergeAnswers(検出結果) で行われる。
+        render();
       };
-
-      cb.addEventListener('change', () => {
-        const st = ensureState();
-        st.checked = cb.checked;
-        awaWrap.classList.toggle('show', cb.checked);
-        updateCategoryCount(catName, items);
-        updateSaveSummary();
-      });
-      awaInput.addEventListener('input', () => {
-        const st = ensureState();
-        st.note = awaInput.value;
-      });
-
-      if(isCustom){
-        const delBtn = row.querySelector('.del-custom');
-        delBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if(confirm(`「${itemText}」をカテゴリから削除しますか？`)){
-            removeCustomItem(currentSubject, catName, itemText);
-          }
-        });
-      }
-
-      body.appendChild(row);
-      body.appendChild(awaWrap);
-    });
-
-    const addRow = document.createElement('div');
-    addRow.className = 'add-item-row';
-    addRow.innerHTML = `<input type="text" placeholder="項目を追加...">
-      <button>追加</button>`;
-    const addInput = addRow.querySelector('input');
-    const addBtn = addRow.querySelector('button');
-    const doAdd = () => {
-      const val = addInput.value.trim();
-      if(!val) return;
-      addCustomItem(currentSubject, catName, val);
-      addInput.value = "";
+      img.src = reader.result;
     };
-    addBtn.addEventListener('click', doAdd);
-    addInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') doAdd(); });
-    body.appendChild(addRow);
-
-    div.appendChild(body);
-    container.appendChild(div);
-  });
-}
-
-function cssSafe(s){
-  return btoa(unescape(encodeURIComponent(s))).replace(/[^a-zA-Z0-9]/g,'');
-}
-function escapeHtml(s){
-  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function updateCategoryCount(catName, items){
-  const el = document.getElementById('cnt_' + cssSafe(catName));
-  if(!el) return;
-  const n = items.filter(it => checkState[catName] && checkState[catName][it] && checkState[catName][it].checked).length;
-  el.textContent = n;
-  el.classList.toggle('has', n>0);
-  el.style.background = n>0 ? categoryColor(currentSubject, catName) : '';
-}
-
-function addCustomItem(subject, cat, text){
-  if(!customItems[subject]) customItems[subject] = {};
-  if(!customItems[subject][cat]) customItems[subject][cat] = [];
-  if(customItems[subject][cat].includes(text)) { showToast('すでに追加済みです'); return; }
-  customItems[subject][cat].push(text);
-  saveCustom(customItems);
-  openCats[cat] = true;
-  renderCategoryList();
-  showToast('項目を追加しました');
-}
-function removeCustomItem(subject, cat, text){
-  if(customItems[subject] && customItems[subject][cat]){
-    customItems[subject][cat] = customItems[subject][cat].filter(x => x !== text);
+    reader.readAsDataURL(file);
   }
-  if(checkState[cat]) delete checkState[cat][text];
-  saveCustom(customItems);
-  renderCategoryList();
-  updateSaveSummary();
-}
 
-function updateSaveSummary(){
-  let total = 0;
-  Object.keys(checkState).forEach(cat => {
-    Object.keys(checkState[cat]).forEach(it => {
-      if(checkState[cat][it].checked) total++;
-    });
+  if (!photoState.img) {
+    const label = el('label', { class: 'btn upload-btn' });
+    label.appendChild(el('div', { style: { fontSize: '20px' } }, '📷'));
+    label.appendChild(el('span', { style: { fontWeight: '700', fontSize: '13px' } }, 'タップして写真・スクショを選ぶ'));
+    const inp = el('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+    inp.addEventListener('change', e => { if (e.target.files[0]) handlePhotoFile(e.target.files[0]); });
+    label.appendChild(inp);
+    wrap.appendChild(label);
+    if (photoState.loadError) wrap.appendChild(el('div', { style: { fontSize: '11.5px', color: 'var(--red)', textAlign: 'center' } }, photoState.loadError));
+    return wrap;
+  }
+
+  const calibDone = photoState.corners.length >= 4;
+
+  if (!calibDone) {
+    const box = el('div', { class: 'notice' });
+    box.appendChild(document.createTextNode(`用紙の${CORNER_LABELS[photoState.corners.length]}の中心をタップ`));
+    box.appendChild(el('div', { style: { fontWeight: '400', marginTop: '2px', fontSize: '11px' } }, `あと${4 - photoState.corners.length}回タップすると全55問を自動で読み取ります。指を押したまま拡大表示で位置を微調整し、離した瞬間に確定します。`));
+    wrap.appendChild(box);
+    const ctrlRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' } });
+    const snapLabel = el('label', { style: { display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: 'var(--inkSoft)', cursor: 'pointer' } });
+    const snapCheckbox = el('input', { type: 'checkbox' });
+    if (photoState.snapEnabled === undefined) photoState.snapEnabled = false;
+    snapCheckbox.checked = photoState.snapEnabled;
+    snapCheckbox.addEventListener('change', e => { photoState.snapEnabled = e.target.checked; render(); });
+    snapLabel.appendChild(snapCheckbox);
+    snapLabel.appendChild(document.createTextNode('タップ位置を近くの黒マークへ自動補正する（うまく合わない時はオフに）'));
+    ctrlRow.appendChild(snapLabel);
+    if (photoState.corners.length > 0) {
+      ctrlRow.appendChild(el('button', { class: 'btn btn-secondary', style: { fontSize: '11px', padding: '4px 10px' }, onclick: () => { photoState.corners.pop(); render(); } }, '↩ 1つ前のタップを取り消す'));
+    }
+    wrap.appendChild(ctrlRow);
+  } else {
+    wrap.appendChild(el('div', { style: { fontSize: '11.5px', color: 'var(--inkSoft)' } }, '読み取り結果です。下の一覧で問題ごとに確認・訂正できます。'));
+  }
+
+  const dispW = photoState.w, dispH = photoState.h;
+  const canvasEl = document.createElement('canvas');
+  canvasEl.width = dispW; canvasEl.height = dispH;
+  canvasEl.style.width = '100%'; canvasEl.style.height = 'auto'; canvasEl.style.display = 'block';
+  const ctx = canvasEl.getContext('2d');
+  ctx.drawImage(photoState.img, 0, 0, dispW, dispH);
+
+  ctx.strokeStyle = '#2E7FD8';
+  ctx.lineWidth = Math.max(2.4, dispW * 0.008);
+  photoState.corners.forEach((p, i) => {
+    ctx.beginPath(); ctx.arc(p.x, p.y, dispW * 0.042, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x, p.y, dispW * 0.007, 0, Math.PI * 2); ctx.fillStyle = '#2E7FD8'; ctx.fill();
+    ctx.font = 'bold ' + Math.round(dispW * 0.036) + 'px sans-serif';
+    ctx.fillStyle = '#2E7FD8';
+    ctx.fillText(String(i + 1), p.x + dispW * 0.048, p.y - dispW * 0.024);
   });
-  document.getElementById('saveSummary').textContent = `${total}件チェック中`;
-  document.getElementById('progressBar').textContent = `${currentSubject}｜チェック済み ${total} 件`;
-  document.getElementById('saveBtn').disabled = total === 0;
-}
 
-/* ================= 保存 ================= */
-document.getElementById('saveBtn').addEventListener('click', () => {
-  const items = [];
-  Object.keys(checkState).forEach(cat => {
-    Object.keys(checkState[cat]).forEach(it => {
-      const st = checkState[cat][it];
-      if(st.checked){
-        items.push({category: cat, item: it, note: (st.note || "").trim()});
+  let pixelGrid = null;
+  if (calibDone) {
+    pixelGrid = mapBubblesToPixels(photoState.corners);
+    pixelGrid.forEach((row, qi) => {
+      const inScope = !highlightQs || highlightQs.has(qi);
+      row.forEach((p, ci) => {
+        const marked = inScope && answers[qi] === ci;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, dispW * 0.017, 0, Math.PI * 2);
+        if (marked) { ctx.fillStyle = dotColor; ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1; }
+        else { ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = Math.max(0.6, dispW * 0.0016); ctx.stroke(); }
+      });
+    });
+  }
+
+  const canvasWrap = el('div', { class: 'canvas-wrap' });
+  canvasWrap.appendChild(canvasEl);
+  canvasEl.style.touchAction = 'none'; // タップ中にブラウザ側でスクロール／ピンチが割り込まないようにする
+
+  function commitTapAt(x, y){
+    if (photoState.corners.length < 4) {
+      const snapped = photoState.snapEnabled === false ? { x, y } : snapToNearestMarker(photoState.img, dispW, dispH, x, y);
+      photoState.corners.push(snapped);
+      if (photoState.corners.length === 4) {
+        const grid = mapBubblesToPixels(photoState.corners);
+        const detected = detectFromPixels(photoState.img, dispW, dispH, grid);
+        mergeAnswers(detected);
+        if (onCalibrated) onCalibrated(photoState.file, detected);
+      } else {
+        render();
       }
-    });
+      return;
+    }
+    if (!pixelGrid) return;
+    const radius = dispW * 0.028;
+    let best = null, bestD = Infinity;
+    pixelGrid.forEach((row, qi) => row.forEach((p, ci) => { const d = Math.hypot(p.x - x, p.y - y); if (d < bestD) { bestD = d; best = { qi, ci }; } }));
+    if (best && bestD <= radius) {
+      const next = answers.slice(); next[best.qi] = next[best.qi] === best.ci ? null : best.ci;
+      setAnswers(next);
+    }
+  }
+  function clientToImageXY(evt){
+    const rect = canvasEl.getBoundingClientRect();
+    const x = (evt.clientX - rect.left) * (dispW / rect.width);
+    const y = (evt.clientY - rect.top) * (dispH / rect.height);
+    return { x: Math.max(0, Math.min(dispW, x)), y: Math.max(0, Math.min(dispH, y)) };
+  }
+  let dragging = false;
+  canvasEl.addEventListener('pointerdown', evt => {
+    evt.preventDefault();
+    try { canvasEl.setPointerCapture(evt.pointerId); } catch (e) {}
+    dragging = true;
+    const { x, y } = clientToImageXY(evt);
+    if (evt.pointerType === 'touch' || evt.pointerType === 'pen') showMagnifier(canvasEl, x, y, dispW, dispH, evt.clientX, evt.clientY);
   });
-  if(items.length === 0) return;
+  canvasEl.addEventListener('pointermove', evt => {
+    if (!dragging) return;
+    evt.preventDefault();
+    const { x, y } = clientToImageXY(evt);
+    if (evt.pointerType === 'touch' || evt.pointerType === 'pen') showMagnifier(canvasEl, x, y, dispW, dispH, evt.clientX, evt.clientY);
+  });
+  canvasEl.addEventListener('pointerup', evt => {
+    if (!dragging) return;
+    dragging = false;
+    hideMagnifier();
+    const { x, y } = clientToImageXY(evt);
+    commitTapAt(x, y);
+  });
+  canvasEl.addEventListener('pointercancel', () => { dragging = false; hideMagnifier(); });
+  wrap.appendChild(canvasWrap);
 
-  const studentInput = document.getElementById('studentName');
-  const studentVal = studentInput.value.trim();
-  if(!studentVal){
-    showToast('生徒名を入力してください');
-    studentInput.focus();
+  if (!calibDone && photoState.corners.length > 0) {
+    // 4隅タップ中、写真の途中までスクロールしていても手が届くよう、
+    // 上部の操作列とは別に写真の中段にも「戻る」ボタンを重ねて表示する。
+    const midUndo = el('button', {
+      class: 'btn btn-secondary',
+      style: {
+        position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+        zIndex: '5', padding: '10px 14px', fontSize: '11.5px', fontWeight: '700',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.3)', opacity: '0.94',
+      },
+      onclick: e => { e.stopPropagation(); photoState.corners.pop(); render(); },
+    }, '↩ 1つ前に戻る');
+    canvasWrap.appendChild(midUndo);
+  }
+
+  const btnRow = el('div', { style: { display: 'flex', gap: '8px' } });
+  btnRow.appendChild(el('button', { class: 'btn btn-secondary', style: { flex: '1' }, onclick: () => { photoState.corners = []; render(); if (cfg.onReset) cfg.onReset(); } }, '⟲ 位置をやり直す'));
+  const retakeLabel = el('label', { class: 'btn btn-secondary', style: { flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' } }, '📷 撮り直す');
+  const retakeInp = el('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+  retakeInp.addEventListener('change', e => { if (e.target.files[0]) { handlePhotoFile(e.target.files[0]); if (cfg.onReset) cfg.onReset(); } });
+  retakeLabel.appendChild(retakeInp);
+  btnRow.appendChild(retakeLabel);
+  wrap.appendChild(btnRow);
+
+  if (calibDone) {
+    wrap.appendChild(renderAnswerCorrectionList(answers, setAnswers, groups, highlightQs));
+  }
+
+  return wrap;
+}
+
+function renderAnswerCorrectionList(answers, setAnswers, groups, filterQs){
+  const qIndices = filterQs ? Array.from(filterQs).sort((a, b) => a - b) : Array.from({ length: TOTAL_Q }, (_, i) => i);
+  const missing = qIndices.filter(qi => answers[qi] === null).length;
+  const listWrap = el('div');
+  const filterNote = filterQs ? `（選択中の大問のみ表示・${qIndices.length}問）` : '';
+  listWrap.appendChild(el('div', { style: { fontSize: '11.5px', fontWeight: '700', color: 'var(--inkSoft)' } }, `読み取り結果（タップで訂正）${filterNote} ・ 未検出 ${missing}問`));
+  const listBox = el('div', { class: 'qlistbox' });
+  qIndices.forEach(qi => {
+    const row = el('div', { class: 'qrow', style: { background: answers[qi] === null ? 'var(--redSoft)' : 'transparent' } });
+    const gi = groupIndexOfQuestion(groups, qi);
+    row.appendChild(el('div', { class: 'qn' }, `Q${qi + 1}` + (gi !== -1 ? '⇄' : '')));
+    const pills = el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } });
+    CHOICE_LABELS.forEach((lab, ci) => {
+      pills.appendChild(el('button', { class: 'pill small' + (answers[qi] === ci ? ' active' : ''), onclick: () => {
+        const next = answers.slice(); next[qi] = next[qi] === ci ? null : ci; setAnswers(next);
+      } }, lab));
+    });
+    row.appendChild(pills);
+    listBox.appendChild(row);
+  });
+  listWrap.appendChild(listBox);
+  return listWrap;
+}
+
+// ---- Gemini-based reader for a filled-in (student) mark sheet ----
+async function callGeminiRaw(base64, mimeType, apiKey, prompt, models, skipModel){
+  let lastErr = null;
+  for (const model of models) {
+    if (model === skipModel) continue;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({ contents: [{ parts: [ { text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } } ] }] }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          lastErr = new Error(`APIエラー(${res.status}・${model})：${errText.slice(0, 160)}`);
+          if (res.status === 404) break; // model doesn't exist, try next candidate
+          if ((res.status === 503 || res.status === 429 || res.status === 500) && attempt === 0) {
+            await new Promise(r => setTimeout(r, 900));
+            continue; // transient: retry the same model once before moving on
+          }
+          break; // exhausted retries for this model, try next candidate
+        }
+        const data = await res.json();
+        const text = data && data.candidates && data.candidates[0] && data.candidates[0].content &&
+          data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
+        if (text) return { text, model };
+        break;
+      } catch (innerErr) { lastErr = innerErr; break; }
+    }
+  }
+  if (lastErr) throw lastErr;
+  return { text: '', model: null };
+}
+
+// ---- Claude-based reader (3票目・じまちゃん自身のAnthropic APIキーを使用) ----
+async function callClaudeRaw(base64, mimeType, apiKey, prompt, models, skipModel){
+  let lastErr = null;
+  for (const model of models) {
+    if (model === skipModel) continue;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 4096,
+            messages: [{ role: 'user', content: [
+              { type: 'text', text: prompt },
+              { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+            ] }],
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          lastErr = new Error(`Claude APIエラー(${res.status}・${model})：${errText.slice(0, 160)}`);
+          if (res.status === 404) break; // model doesn't exist, try next candidate
+          if ((res.status === 529 || res.status === 503 || res.status === 429 || res.status === 500) && attempt === 0) {
+            await new Promise(r => setTimeout(r, 900));
+            continue;
+          }
+          break;
+        }
+        const data = await res.json();
+        const textBlock = (data && Array.isArray(data.content)) ? data.content.find(b => b && b.type === 'text') : null;
+        const text = textBlock ? textBlock.text : '';
+        if (text) return { text, model };
+        break;
+      } catch (innerErr) { lastErr = innerErr; break; }
+    }
+  }
+  if (lastErr) throw lastErr;
+  return { text: '', model: null };
+}
+
+const MARK_READ_PROMPT_TMPL = `この画像は、生徒が塗りつぶしたマークシートの写真です。問題は1番から${TOTAL_Q}番まであり、各問題の選択肢は0から9の数字です（横一列に並んだ0〜9の丸から1つを塗りつぶす形式）。各問について、濃く塗りつぶされている選択肢の数字を判定してください。「問題番号:塗られた数字」の形式で、カンマ区切りで、判定できた問題だけ出力してください（例：1:4,2:0,3:7,...）。順番は気にしなくて構いません。塗りつぶしが薄い・複数の選択肢が塗られている・空欄など、自信を持って判定できない問題は出力しないでください。数字とカンマと「:」以外の文字は含めないでください。`;
+
+// vote count（読み取り回数・照合方式）: 'single'=1回のみ, 'double'=Gemini×2, 'triple'=Gemini×2+Claude
+function voteCountOf(mode){ return mode === 'single' ? 1 : mode === 'triple' ? 3 : 2; }
+
+// ---- タップ判定＋AI判定の組み合わせ照合（4隅タップは決定論的なので、AIが読み間違えた
+// 場合の強力な照合相手になる） ----
+async function runComboRead(comboState, setAnswers, geminiKey, claudeKey, aiCount){
+  const n = 1 + aiCount; // タップ1票 + AI追加分
+  comboState.busy = true; comboState.error = ''; comboState.disagreements = [];
+  render();
+  try {
+    if (!comboState.tapVotes || !comboState.file) throw new Error('先に4隅をタップしてください。');
+    const votes = [comboState.tapVotes];
+    if (aiCount >= 1) {
+      comboState.progress = `Geminiで照合中…（1/${aiCount}）`; render();
+      const base64 = await fileToBase64(comboState.file);
+      const mimeType = comboState.file.type || 'image/jpeg';
+      const r1 = await callGeminiRaw(base64, mimeType, geminiKey, MARK_READ_PROMPT_TMPL, GEMINI_MODEL_CANDIDATES);
+      if (!r1.text) throw new Error('Geminiから結果を取得できませんでした。');
+      votes.push(parseAnswerText(r1.text, Array(TOTAL_Q).fill(null)).next);
+      if (aiCount >= 2) {
+        comboState.progress = `Claudeで照合中…（2/${aiCount}）`; render();
+        const r2 = await callClaudeRaw(base64, mimeType, claudeKey, MARK_READ_PROMPT_TMPL, CLAUDE_MODEL_CANDIDATES);
+        votes.push(r2.text ? parseAnswerText(r2.text, Array(TOTAL_Q).fill(null)).next : Array(TOTAL_Q).fill(null));
+      }
+    }
+    if (n === 1) {
+      setAnswers(votes[0]);
+      comboState.disagreements = [];
+    } else {
+      const { merged, disagreements } = mergeVotes(votes, TOTAL_Q);
+      const final = merged.slice();
+      for (let i = 0; i < TOTAL_Q; i++) {
+        if (final[i] === null) {
+          const guess = votes.map(v => v[i]).find(v => v !== null && v !== undefined);
+          if (guess !== undefined) final[i] = guess;
+        }
+      }
+      setAnswers(final);
+      comboState.disagreements = disagreements;
+      if (disagreements.length > 0) {
+        comboState.error = `タップとAIの判定が一致しなかった問題（要確認・1つの結果を仮採用）：Q${disagreements.join(', Q')}`;
+      }
+    }
+  } catch (e) {
+    comboState.error = (e && e.message) ? e.message : 'AIとの照合に失敗しました。';
+  }
+  comboState.busy = false; comboState.progress = ''; render();
+}
+
+function renderComboReader(cfg){
+  const { answers, setAnswers, mergeAnswers, photoState, comboState, groups, dotColor, highlightQs } = cfg;
+  if (comboState.aiCount === undefined) comboState.aiCount = 1;
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } });
+
+  wrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--inkSoft)', lineHeight: '1.6' } }, '写真を選び、4隅をタップしてください。タップによる機械判定（決定論的）がまず反映されます。そのあと下のボタンでAIとも照合すると、両方が一致した問題だけ確定し、不一致は要確認になります。'));
+
+  wrap.appendChild(renderCornerPhotoReader({
+    answers, setAnswers, mergeAnswers, groups, photoState, dotColor, highlightQs,
+    onCalibrated: (file, tapVotes) => { comboState.file = file; comboState.tapVotes = tapVotes; comboState.disagreements = []; comboState.error = ''; render(); },
+    onReset: () => { comboState.file = null; comboState.tapVotes = null; comboState.disagreements = []; comboState.error = ''; if (cfg.onReset) cfg.onReset(); },
+  }));
+
+  if (comboState.tapVotes) {
+    const currentKey = getGeminiKey();
+    const currentClaudeKey = getClaudeKey();
+    const aiPanel = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', border: '2px solid var(--red)', borderRadius: '9px', padding: '10px' } });
+    aiPanel.appendChild(el('div', { style: { fontSize: '12px', fontWeight: '700' } }, 'AIとも照合する（タップ結果と付き合わせて確認）'));
+
+    const row = el('div', { style: { display: 'flex', gap: '4px' } });
+    [[0, 'タップのみ'], [1, '+Gemini1回'], [2, '+Gemini+Claude']].forEach(([c, lb]) => {
+      row.appendChild(el('button', { class: 'presetbtn' + (comboState.aiCount === c ? ' active' : ''), onclick: () => { comboState.aiCount = c; render(); } }, lb));
+    });
+    aiPanel.appendChild(row);
+
+    const needsClaude = comboState.aiCount >= 2;
+    if (comboState.aiCount >= 1) {
+      const keyWrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+      keyWrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--inkSoft)' } }, 'Gemini APIキー（この端末に保存されます）'));
+      const keyInput = el('input', { type: 'password', placeholder: 'ここにGemini APIキーを貼り付け' });
+      keyInput.value = currentKey;
+      keyInput.addEventListener('change', e => { setGeminiKey(e.target.value.trim()); render(); });
+      keyWrap.appendChild(keyInput);
+      aiPanel.appendChild(keyWrap);
+    }
+    if (needsClaude) aiPanel.appendChild(renderClaudeKeyInput());
+
+    const ready = comboState.aiCount === 0 || (currentKey && (!needsClaude || currentClaudeKey));
+    const btn = el('button', { class: 'btn btn-danger', style: { opacity: (comboState.busy || !ready) ? 0.5 : 1 }, onclick: () => {
+      if (comboState.busy || !ready) return;
+      runComboRead(comboState, mergeAnswers, currentKey, currentClaudeKey, comboState.aiCount);
+    } }, comboState.busy ? `照合中…${comboState.progress || ''}` : (comboState.aiCount === 0 ? 'タップ結果を確定する' : '🔮 AIとも照合する'));
+    aiPanel.appendChild(btn);
+    if (comboState.aiCount >= 1 && !currentKey) aiPanel.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--red)', fontWeight: '700' } }, '↑ Gemini APIキーが必要です。'));
+    else if (needsClaude && !currentClaudeKey) aiPanel.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--red)', fontWeight: '700' } }, '↑ Claude APIキーも必要です。'));
+    if (comboState.error) aiPanel.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--red)', lineHeight: '1.6' } }, comboState.error));
+    wrap.appendChild(aiPanel);
+  }
+
+  return wrap;
+}
+
+async function runMultiMarkRead(file, geminiKey, claudeKey, state, setAnswers, mode){
+  const n = voteCountOf(mode);
+  state.busy = true; state.error = ''; state.disagreements = [];
+  state.progress = n > 1 ? `1回目を読み取り中…（1/${n}）` : 'Geminiで読み取り中…';
+  render();
+  try {
+    const base64 = await fileToBase64(file);
+    const mimeType = file.type || 'image/jpeg';
+    const prompt = MARK_READ_PROMPT_TMPL;
+
+    const votes = [];
+    const r1 = await callGeminiRaw(base64, mimeType, geminiKey, prompt, GEMINI_MODEL_CANDIDATES);
+    if (!r1.text) throw new Error('Geminiから結果を取得できませんでした。');
+    votes.push(parseAnswerText(r1.text, Array(TOTAL_Q).fill(null)).next);
+
+    if (n >= 2) {
+      state.progress = `2回目を読み取り中（照合用）…（2/${n}）`; render();
+      const r2 = await callGeminiRaw(base64, mimeType, geminiKey, prompt, GEMINI_MODEL_CANDIDATES, r1.model);
+      votes.push(r2.text ? parseAnswerText(r2.text, Array(TOTAL_Q).fill(null)).next : Array(TOTAL_Q).fill(null));
+    }
+    if (n >= 3) {
+      state.progress = `3回目を読み取り中（Claude・照合用）…（3/${n}）`; render();
+      const r3 = await callClaudeRaw(base64, mimeType, claudeKey, prompt, CLAUDE_MODEL_CANDIDATES);
+      votes.push(r3.text ? parseAnswerText(r3.text, Array(TOTAL_Q).fill(null)).next : Array(TOTAL_Q).fill(null));
+    }
+
+    if (n === 1) {
+      setAnswers(votes[0]);
+      state.disagreements = [];
+    } else {
+      const { merged, disagreements } = mergeVotes(votes, TOTAL_Q);
+      // 過半数が一致しなかった問題は、答えを空欄にしてしまうと採点時にその問題
+      // （順不同グループの場合はグループ全体）が無条件で不正解扱いになってしまう。
+      // それを避けるため、1票でも判定できていればその値を仮採用しつつ
+      // disagreements に残して要確認表示は維持する（正誤はじまちゃんの目で確認できる）。
+      const final = merged.slice();
+      for (let i = 0; i < TOTAL_Q; i++) {
+        if (final[i] === null) {
+          const guess = votes.map(v => v[i]).find(v => v !== null && v !== undefined);
+          if (guess !== undefined) final[i] = guess;
+        }
+      }
+      setAnswers(final);
+      state.disagreements = disagreements;
+      if (disagreements.length > 0) {
+        state.error = `${n}票中、過半数が一致しなかった問題（要確認・1つの読み取り結果を仮採用しています）：Q${disagreements.join(', Q')}`;
+      }
+    }
+  } catch (e) {
+    state.error = (e && e.message) ? e.message : '読み取りに失敗しました。';
+  }
+  state.busy = false; state.progress = ''; render();
+}
+
+function renderVoteModeControls(state, opts){
+  opts = opts || {};
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+  const row = el('div', { style: { display: 'flex', gap: '4px' } });
+  [['single', '1回のみ'], ['double', '2票：Gemini×2'], ['triple', '3票：Gemini×2+Claude']].forEach(([m, lb]) => {
+    row.appendChild(el('button', { class: 'presetbtn' + (state.mode === m ? ' active' : ''), onclick: () => { state.mode = m; if (opts.onChange) opts.onChange(); render(); } }, lb));
+  });
+  wrap.appendChild(row);
+  const hint = state.mode === 'single' ? '1回だけ読み取ります（照合なし・最速）。'
+    : state.mode === 'double' ? '2つのGeminiモデルで照合し、両方が一致した問題だけ採用します（不一致は要確認にします）。'
+    : '2つのGeminiモデル＋Claudeの計3票で照合し、2票以上が一致した問題を採用します（最高精度・時間は約3倍）。';
+  wrap.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--inkSoft)', lineHeight: '1.5' } }, hint));
+  return wrap;
+}
+
+function renderClaudeKeyInput(){
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+  wrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--inkSoft)' } }, 'Claude APIキー（3票照合の3票目用・console.anthropic.comで取得・この端末に保存されます）'));
+  const inp = el('input', { type: 'password', placeholder: 'ここにClaude APIキーを貼り付け' });
+  inp.value = getClaudeKey();
+  inp.addEventListener('change', e => { setClaudeKey(e.target.value.trim()); render(); });
+  wrap.appendChild(inp);
+  return wrap;
+}
+
+function renderGeminiMarkReader(cfg){
+  const { answers, setAnswers, state, groups, highlightQs } = cfg;
+  const mergeAnswers = cfg.mergeAnswers || setAnswers; // 正解セット登録では overwrite と同じでよい
+  if (state.mode === undefined) state.mode = 'double';
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } });
+  const currentKey = getGeminiKey();
+  const currentClaudeKey = getClaudeKey();
+  const needsClaude = state.mode === 'triple';
+  const ready = currentKey && (!needsClaude || currentClaudeKey);
+
+  const keyWrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+  keyWrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--inkSoft)' } }, 'Gemini APIキー（正解セット登録時と共通・この端末に保存されます）'));
+  const keyInput = el('input', { type: 'password', placeholder: 'ここにGemini APIキーを貼り付け' });
+  keyInput.value = currentKey;
+  keyInput.addEventListener('change', e => { setGeminiKey(e.target.value.trim()); render(); });
+  keyWrap.appendChild(keyInput);
+  wrap.appendChild(keyWrap);
+
+  wrap.appendChild(renderVoteModeControls(state));
+  if (needsClaude) wrap.appendChild(renderClaudeKeyInput());
+
+  const label = el('label', { class: 'btn btn-danger', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: (state.busy || !ready) ? 'default' : 'pointer', opacity: (state.busy || !ready) ? 0.5 : 1 } },
+    state.busy ? `読み取り中…${state.batchProgress ? state.batchProgress + '　' : ''}${state.progress || ''}` : '🔮 写真をAIに読ませる（複数枚まとめて選択可）');
+  if (!state.busy && ready) {
+    const inp = el('input', { type: 'file', accept: 'image/*', multiple: true, style: { display: 'none' } });
+    inp.addEventListener('change', async e => {
+      const files = Array.from(e.target.files || []);
+      e.target.value = ''; // 同じファイルを選び直せるようにリセット
+      if (files.length === 0) return;
+      // 複数枚まとめて選ばれた場合は1枚ずつ順番にAIへ送り、結果は毎回mergeAnswersで積み上げる。
+      // 既存の「続きから採点（大問ごとの合算）」の仕組みをそのまま使うので、
+      // 別の大問の写真を複数まとめて選んでも自動で合算される。
+      for (let i = 0; i < files.length; i++) {
+        state.batchProgress = files.length > 1 ? `（${i + 1}/${files.length}枚目）` : '';
+        await runMultiMarkRead(files[i], currentKey, currentClaudeKey, state, mergeAnswers, state.mode);
+        if (state.error) break; // 途中で失敗したら止めて内容を確認できるようにする（残り枚数分を無駄打ちしない）
+      }
+      state.batchProgress = '';
+      render();
+    });
+    label.appendChild(inp);
+  }
+  wrap.appendChild(label);
+  if (!currentKey) wrap.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--red)', fontWeight: '700' } }, '↑ まずGemini APIキーを貼り付けてください。'));
+  else if (needsClaude && !currentClaudeKey) wrap.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--red)', fontWeight: '700' } }, '↑ 3票照合にはClaude APIキーも必要です。'));
+  if (state.error) wrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--red)', lineHeight: '1.6' } }, state.error));
+
+  if (answers.length > 0 && answers.some(a => a !== null)) {
+    wrap.appendChild(renderAnswerCorrectionList(answers, setAnswers, groups, highlightQs));
+  }
+  return wrap;
+}
+
+// ============================================================
+// NEW ANSWER SET (register the answer key for this fixed sheet)
+// ============================================================
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+}
+
+// エイリアス（gemini-flash-latest / gemini-pro-latest）はGoogle側で常に
+// 最新の安定モデルを指すよう更新されるため最優先。廃止されがちな個別バージョン名は
+// 保険として後ろに並べる（2026年9月時点でgemini-3.7-flashが最新の安定Flash）。
+const GEMINI_MODEL_CANDIDATES = ['gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-pro-latest', 'gemini-3.1-pro-preview'];
+// トリプル照合の3票目（Claude API・じまちゃんのAnthropic APIキーを使用）
+const CLAUDE_MODEL_CANDIDATES = ['claude-sonnet-5', 'claude-haiku-4-5-20251001'];
+
+function formatBulkTextForDisplay(text){
+  const tokens = text.split(/[,、\n]+/).map(t => t.trim()).filter(Boolean);
+  const lines = [];
+  for (let i = 0; i < tokens.length; i += 10) lines.push(tokens.slice(i, i + 10).join(', '));
+  return lines.join('\n');
+}
+
+function extractAndMergeGroups(text, currentGroupsText){
+  // AI出力の末尾に「:順」または「:order」が付いていれば順序通りグループ、
+  // 付いていなければ（従来通り）順不同グループとして扱う。
+  const reGroup = /GROUP\s*:\s*(\d{1,3})\s*[-〜~－]\s*(\d{1,3})(?:\s*:\s*(\d{1,3}))?(?:\s*:\s*(順|order))?/g;
+  const found = [];
+  let m;
+  while ((m = reGroup.exec(text)) !== null) {
+    const orderSuffix = m[4] ? '順' : '';
+    found.push(m[3] ? `${m[1]}-${m[2]}${orderSuffix}:${m[3]}` : `${m[1]}-${m[2]}${orderSuffix}`);
+  }
+  const cleanedText = text.replace(reGroup, ' ');
+  if (found.length === 0) return { cleanedText, groupsText: currentGroupsText, addedCount: 0 };
+
+  // 重複判定は「順」マーカーを無視した範囲（開始-終了）のみで行う
+  const rangeKeyOf = s => { const mm = s.match(/^(\d+)\s*[-〜~－]\s*(\d+)/); return mm ? `${mm[1]}-${mm[2]}` : s.replace(/\s/g, ''); };
+  const existing = (currentGroupsText || '').split(/[,、\n]+/).map(s => s.trim()).filter(Boolean);
+  const existingRanges = new Set(existing.map(rangeKeyOf));
+  const additions = found.filter(f => !existingRanges.has(rangeKeyOf(f)));
+  const merged = existing.concat(additions).join(', ');
+  return { cleanedText, groupsText: merged, addedCount: additions.length };
+}
+
+// 解答表の画像に「大問1」「第2問」のような見出し・区切りがあれば、AIにその範囲も
+// 検出させて自動で⑤大問区切りへ反映する（グループのGROUP:行と同じ考え方）。
+function extractAndMergeSections(text, currentSectionsText){
+  const reSection = /SECTION\s*:\s*([^:：\n,、]{0,20}?)\s*:\s*(\d{1,3})\s*[-〜~－]\s*(\d{1,3})/g;
+  const found = [];
+  let m;
+  while ((m = reSection.exec(text)) !== null) {
+    const label = (m[1] || '').trim();
+    found.push(`${label ? label + ':' : ''}${m[2]}-${m[3]}`);
+  }
+  const cleanedText = text.replace(reSection, ' ');
+  if (found.length === 0) return { cleanedText, sectionsText: currentSectionsText, addedCount: 0 };
+
+  const existing = (currentSectionsText || '').split(/[,、\n]+/).map(s => s.trim()).filter(Boolean);
+  const rangeOf = s => { const parts = s.split(':'); return (parts[parts.length - 1] || '').replace(/\s/g, ''); };
+  const existingRanges = new Set(existing.map(rangeOf));
+  const additions = found.filter(f => !existingRanges.has(rangeOf(f)));
+  const merged = existing.concat(additions).join(', ');
+  return { cleanedText, sectionsText: merged, addedCount: additions.length };
+}
+
+const ANSWER_TABLE_PROMPT = `この画像は解答一覧表です。「問1」「1.」などの問題番号ラベル、その正解（①②③のような丸数字、または算用数字）、そして配点（その問題の点数、通常は隣接する列に書かれた数字）がセットで並んでいます。並び順が左右2列だったり、番号順どおりでない場合があります。
+
+まず、画像に写っている問題ラベル・正解・配点の組をすべて、順番は気にせず「問題番号:正解:配点」の形式で、カンマ区切りで出力してください（例：1:4:2,2:2:3,15:0:2,...）。正解が丸数字（①②③④⑤⑥⑦⑧⑨、⓪）の場合は対応する算用数字（1,2,3,4,5,6,7,8,9,0）に変換してください。配点が画像に見当たらない問題は「問題番号:正解」の2つだけでも構いません。
+
+次に、複数の解答欄をまとめて「全部正解しないと点が入らない」形で採点する問題の範囲があれば、それは「グループ」です。グループには次の2種類があるので、見分けて区別してください（表の下に「※は、全部正解の場合のみ点を与える」「-（ハイフン）でつながった正解は、順序を問わない」のような凡例が書かれていれば、それがそのままこの2種類の説明です）。
+
+【順不同グループ】＝グループ内の正解がどの解答欄に入っていてもよい（位置の入れ替えOK）
+- 正解の欄がハイフンでつながれた複数の丸数字になっている（例：②-⑤、30-31）→ これが順不同グループの典型例です
+
+【順序通りグループ】＝各解答欄にそれぞれ決まった正解があり、その位置のまま全部一致して初めて配点される（位置の入れ替えは不可。ただし全部正解でないと0点というall-or-nothingの点は順不同と同じ）
+- 正解の欄はハイフンでつながっておらず、連続する複数の解答欄（例：9,10,11,12）にそれぞれ個別の正解が入っているが、配点欄に※や*などの注釈があり「全部正解の場合のみ点を与える」といった趣旨が書かれている、または配点が複数の問題番号にまたがって1つだけ書かれている（結合セルのように見える）
+- 並べ替え問題（文章や語句の順序を答えるタイプ）で、複数の解答欄がそれぞれ1点などの小さい配点で表になっているが、実際にはその並べ替え全体が完成して初めて配点される場合
+
+どちらのグループの場合も、各解答欄の問題番号と正解は必ず個別に「問題番号:正解:配点」として出力してください（配点は表に書かれている数字のままで構いません、後で合計点に上書きされます）。その上で、その範囲をGROUPとして追加し、配点にはそのグループ全体の合計点（表の近くに書かれている合計点、または個別配点の合計など）を指定してください。
+
+そのような範囲を見つけたら、個別の問題出力に加えて、次の形式で追加してください（配点が分からなければ配点部分は省略して構いません）：
+- 順不同グループ：「GROUP:開始問題番号-終了問題番号:配点」例：GROUP:30-31:3
+- 順序通りグループ：末尾にさらに「:順」を付ける「GROUP:開始問題番号-終了問題番号:配点:順」例：GROUP:9-12:3:順
+
+さらに、画像の中に「大問1」「第1問」「Part1」「大問一」のような、複数の問題をまとめる見出し・区切り線・段組みの切り替わりが見えたら、その大問がどの問題番号からどの問題番号までを含むかを判定し、「SECTION:見出しの名前:開始問題番号-終了問題番号」の形式で追加してください（見出しの文字が読み取れなければ「SECTION::開始-終了」のように名前を省略しても構いません）。例：SECTION:大問1:1-30　見出しが無く、大問の区切りが分からない場合は無理に出力しなくて構いません。
+
+出力は「問題番号:正解:配点」の並びと「GROUP:...」「SECTION:...」の並びだけにしてください。見出し・注釈・説明文は一切含めないでください。自信を持って読み取れないものは出力しなくて構いません。`;
+
+async function runMultiOcr(file, geminiKey, claudeKey, mode){
+  const n = voteCountOf(mode);
+  NS.ocrBusy = true; NS.ocrError = ''; NS.geminiDisagreements = []; NS.pointsUndetectedFromOcr = [];
+  NS.ocrProgress = n > 1 ? `1回目を読み取り中…（1/${n}）` : 'Geminiで読み取り中…';
+  render();
+  try {
+    const base64 = await fileToBase64(file);
+    const mimeType = file.type || 'image/jpeg';
+    const prompt = ANSWER_TABLE_PROMPT;
+
+    const raws = [];
+    const r1 = await callGeminiRaw(base64, mimeType, geminiKey, prompt, GEMINI_MODEL_CANDIDATES);
+    if (!r1.text) throw new Error('Geminiから結果を取得できませんでした。');
+    raws.push(r1.text);
+
+    if (n >= 2) {
+      NS.ocrProgress = `2回目を読み取り中（照合用）…（2/${n}）`; render();
+      const r2 = await callGeminiRaw(base64, mimeType, geminiKey, prompt, GEMINI_MODEL_CANDIDATES, r1.model);
+      raws.push(r2.text || '');
+    }
+    if (n >= 3) {
+      NS.ocrProgress = `3回目を読み取り中（Claude・照合用）…（3/${n}）`; render();
+      const r3 = await callClaudeRaw(base64, mimeType, claudeKey, prompt, CLAUDE_MODEL_CANDIDATES);
+      raws.push(r3.text || '');
+    }
+
+    // 順不同グループはどの読み取り結果から見つかっても採用する（1票でも検出すれば反映）
+    let groupsText = NS.groupsText, addedCount = 0;
+    let sectionsText = NS.sectionsText, sectionsAddedCount = 0;
+    const cleanedRaws = raws.map(text => {
+      const gr = extractAndMergeGroups(text, groupsText);
+      groupsText = gr.groupsText; addedCount += gr.addedCount;
+      const sr = extractAndMergeSections(gr.cleanedText, sectionsText);
+      sectionsText = sr.sectionsText; sectionsAddedCount += sr.addedCount;
+      return sr.cleanedText;
+    });
+    NS.groupsText = groupsText;
+    NS.geminiGroupsFound = addedCount;
+    NS.sectionsText = sectionsText;
+    NS.geminiSectionsFound = sectionsAddedCount;
+
+    let finalRaw;
+    if (n === 1) {
+      finalRaw = cleanedRaws[0];
+      NS.geminiDisagreements = [];
+    } else {
+      const parsed = cleanedRaws.map(t => parseAnswerText(t, Array(TOTAL_Q).fill(null), Array(TOTAL_Q).fill(0)));
+      const { merged, disagreements } = mergeVotes(parsed.map(p => p.next), TOTAL_Q);
+      // 配点は正解と違って多数決に馴染まないため、検出した読み取り結果のうち
+      // 最初のもの（優先順）の値を採用する。どの読み取り結果にも配点が
+      // 見当たらなかった問題は、当て推量で1点などを入れると合計点が
+      // 静かにズレてしまうため、0点として扱う（後で見つけやすいように0点にする）。
+      const points = Array(TOTAL_Q).fill(0);
+      for (let i = 0; i < TOTAL_Q; i++) {
+        for (const p of parsed) { if (p.pointsSet && p.pointsSet.has(i + 1)) { points[i] = p.points[i]; break; } }
+      }
+      // 過半数が一致しなかった問題を丸ごと除外すると、配点まで一緒に消えてしまい
+      // （特に順不同グループ・並べ替え問題はグループ内の1問が不一致になっただけで
+      // グループ全体の合計点がズレる）合計点表示が信用できなくなる。そのため、
+      // 1票でも読み取れていればその答え＋正しい配点を仮採用として残し、
+      // disagreements には引き続き載せて「要確認」表示・オレンジ枠は維持する。
+      const tokens = [];
+      const noPointsDetected = [];
+      for (let i = 0; i < TOTAL_Q; i++) {
+        let ansIdx = merged[i];
+        if (ansIdx === null) {
+          const guess = parsed.map(p => p.next[i]).find(v => v !== null && v !== undefined);
+          if (guess !== undefined) ansIdx = guess;
+        }
+        if (ansIdx !== null && ansIdx !== undefined) {
+          tokens.push(`${i + 1}:${CHOICE_LABELS[ansIdx]}:${points[i]}`);
+          // どの読み取り結果にもこの問題の配点が含まれていなかった場合、上のpointsは
+          // 単なるデフォルト値（1点や前回値）でしかない。トークンに埋め込むと後段の
+          // 「反映する」側では検出できなくなるため、ここで直接検出しておく。
+          if (!parsed.some(p => p.pointsSet && p.pointsSet.has(i + 1))) noPointsDetected.push(i + 1);
+        }
+      }
+      finalRaw = tokens.join(',');
+      NS.geminiDisagreements = disagreements;
+      NS.pointsUndetectedFromOcr = noPointsDetected;
+      if (disagreements.length > 0) {
+        NS.ocrError = `${n}票中、過半数が一致しなかった問題（要確認・1つの読み取り結果を仮採用し配点はそのまま反映しています）：Q${disagreements.join(', Q')}`;
+      }
+    }
+
+    NS.bulkText = formatBulkTextForDisplay(finalRaw.trim());
+    if (!NS.bulkText) NS.ocrError = NS.ocrError || '結果を取得できませんでした。';
+  } catch (e) {
+    NS.ocrError = (e && e.message) ? e.message : '読み取りに失敗しました。';
+  }
+  NS.ocrBusy = false; NS.ocrProgress = ''; render();
+}
+
+async function runOcr(file){
+  if (typeof Tesseract === 'undefined') {
+    NS.ocrError = 'OCRエンジンを読み込めませんでした。インターネット接続を確認してもう一度お試しください。';
+    render();
     return;
   }
-  addKnownStudentName(studentVal);
-  populateStudentDatalist();
-
-  const rec = {
-    id: Date.now(),
-    date: document.getElementById('recDate').value || todayStr(),
-    label: document.getElementById('recLabel').value.trim(),
-    subject: currentSubject,
-    student: studentVal,
-    items: items
-  };
-  records.unshift(rec);
-  saveRecords(records);
-
-  resetCheckState();
-  document.getElementById('recLabel').value = "";
-  renderCategoryList();
-  updateSaveSummary();
-  showToast('記録を保存しました');
-});
-
-function todayStr(){
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-/* ================= タブ / 科目切り替え ================= */
-document.getElementById('tabRecord').addEventListener('click', () => switchTab('record'));
-document.getElementById('tabReview').addEventListener('click', () => switchTab('review'));
-
-function switchTab(name){
-  document.getElementById('tabRecord').classList.toggle('active', name==='record');
-  document.getElementById('tabReview').classList.toggle('active', name==='review');
-  document.getElementById('viewRecord').classList.toggle('active', name==='record');
-  document.getElementById('viewReview').classList.toggle('active', name==='review');
-  document.getElementById('saveBar').style.display = name==='record' ? 'flex' : 'none';
-  if(name === 'review') renderReview();
-}
-
-document.getElementById('subjEngBtn').addEventListener('click', () => switchSubject('英語'));
-document.getElementById('subjKokBtn').addEventListener('click', () => switchSubject('国語'));
-
-function switchSubject(subj){
-  if(currentSubject === subj) return;
-  currentSubject = subj;
-  document.getElementById('subjEngBtn').classList.toggle('active', subj==='英語');
-  document.getElementById('subjKokBtn').classList.toggle('active', subj==='国語');
-  resetCheckState();
-  openCats = {};
-  renderCategoryList();
-  updateSaveSummary();
-}
-
-/* ================= 振り返る VIEW ================= */
-document.getElementById('filterSubject').addEventListener('change', renderReview);
-document.getElementById('filterRange').addEventListener('change', renderReview);
-document.getElementById('filterStudent').addEventListener('change', renderReview);
-
-function populateStudentFilter(){
-  const sel = document.getElementById('filterStudent');
-  const current = sel.value;
-  const names = Array.from(new Set(records.map(r => r.student).filter(Boolean))).sort();
-  sel.innerHTML = '<option value="all">全生徒</option>' + names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-  if(names.includes(current)) sel.value = current;
-}
-
-function getFilteredRecords(){
-  const subj = document.getElementById('filterSubject').value;
-  const range = document.getElementById('filterRange').value;
-  const stu = document.getElementById('filterStudent').value;
-  let list = records.slice();
-  if(subj !== 'all') list = list.filter(r => r.subject === subj);
-  if(stu !== 'all') list = list.filter(r => r.student === stu);
-  if(range !== 'all'){
-    const days = parseInt(range,10);
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    list = list.filter(r => new Date(r.date) >= cutoff);
-  }
-  return list;
-}
-
-function renderReview(){
-  populateStudentFilter();
-  const list = getFilteredRecords();
-
-  // ランキング（項目別）
-  const itemCounts = {}; // key: subject|category|item -> {count, subject}
-  const catCounts = {}; // key: subject|category -> count
-
-  list.forEach(rec => {
-    rec.items.forEach(it => {
-      const key = rec.subject + '｜' + it.category + '｜' + it.item;
-      if(!itemCounts[key]) itemCounts[key] = {count:0, subject:rec.subject, category:it.category, item:it.item};
-      itemCounts[key].count++;
-
-      const ckey = rec.subject + '｜' + it.category;
-      catCounts[ckey] = (catCounts[ckey] || 0) + 1;
-    });
-  });
-
-  const rankingArr = Object.values(itemCounts).sort((a,b) => b.count - a.count).slice(0,10);
-  const rankingEl = document.getElementById('rankingList');
-  if(rankingArr.length === 0){
-    rankingEl.innerHTML = `<div class="empty-msg">まだ記録がありません。「記録する」タブでチェックして保存してください。</div>`;
-  } else {
-    const maxCount = rankingArr[0].count;
-    rankingEl.innerHTML = rankingArr.map(r => {
-      const color = categoryColor(r.subject, r.category);
-      return `
-      <div class="bar-row">
-        <div class="bar-label">
-          <span><span class="cat-dot" style="background:${color}"></span>${escapeHtml(r.item)}<span style="color:var(--sub); font-size:11px;"> ／ ${escapeHtml(r.category)}</span></span>
-          <span class="cnt">${r.count}回</span>
-        </div>
-        <div class="bar-track"><div class="bar-fill" style="width:${(r.count/maxCount*100)}%; background:${color};"></div></div>
-      </div>
-    `;
-    }).join('');
-  }
-
-  // カテゴリ別
-  const catArr = Object.keys(catCounts).map(k => {
-    const [subject, category] = k.split('｜');
-    return {subject, category, count: catCounts[k]};
-  }).sort((a,b) => b.count - a.count);
-  const catEl = document.getElementById('categoryStats');
-  if(catArr.length === 0){
-    catEl.innerHTML = `<div class="empty-msg">データなし</div>`;
-  } else {
-    const maxCat = catArr[0].count;
-    catEl.innerHTML = catArr.map(r => {
-      const color = categoryColor(r.subject, r.category);
-      return `
-      <div class="bar-row">
-        <div class="bar-label">
-          <span><span class="cat-dot" style="background:${color}"></span>${escapeHtml(r.category)}<span style="color:var(--sub); font-size:11px;"> （${r.subject}）</span></span>
-          <span class="cnt">${r.count}回</span>
-        </div>
-        <div class="bar-track"><div class="bar-fill" style="width:${(r.count/maxCat*100)}%; background:${color};"></div></div>
-      </div>
-    `;
-    }).join('');
-  }
-
-  // 対策メモまとめ（カテゴリ・項目別）
-  const noteGroups = {}; // key: subject|category -> {subject, category, items:{itemName:[{note,date,student}]}}
-  list.forEach(rec => {
-    rec.items.forEach(it => {
-      if(!it.note || !it.note.trim()) return;
-      const key = rec.subject + '｜' + it.category;
-      if(!noteGroups[key]) noteGroups[key] = {subject: rec.subject, category: it.category, items:{}};
-      if(!noteGroups[key].items[it.item]) noteGroups[key].items[it.item] = [];
-      noteGroups[key].items[it.item].push({note: it.note, date: rec.date, student: rec.student});
-    });
-  });
-  const groupArr = Object.values(noteGroups).sort((a,b) => {
-    if(a.subject !== b.subject) return a.subject === '英語' ? -1 : 1;
-    const cats = getAllCategories(a.subject);
-    return Object.keys(cats).indexOf(a.category) - Object.keys(cats).indexOf(b.category);
-  });
-  const notesEl = document.getElementById('notesSummary');
-  if(groupArr.length === 0){
-    notesEl.innerHTML = `<div class="empty-msg">まだ対策メモがありません。チェック時に自由記入欄に書き込むとここにまとまります。</div>`;
-  } else {
-    notesEl.innerHTML = groupArr.map(g => {
-      const color = categoryColor(g.subject, g.category);
-      const itemsHtml = Object.keys(g.items).map(itemName => {
-        const entries = g.items[itemName];
-        const entriesHtml = entries.map(e => `
-          <div class="notes-entry">${escapeHtml(e.note)}<span class="notes-meta">${escapeHtml(e.date)} ／ ${escapeHtml(e.student || '')}</span></div>
-        `).join('');
-        return `<div class="notes-item-group"><div class="notes-item-title">${escapeHtml(itemName)}</div>${entriesHtml}</div>`;
-      }).join('');
-      return `<div class="notes-cat-group">
-        <div class="notes-cat-head"><span class="cat-dot" style="background:${color}"></span>${escapeHtml(g.category)}<span style="color:var(--sub); font-weight:400; font-size:11px; margin-left:6px;">（${g.subject}）</span></div>
-        ${itemsHtml}
-      </div>`;
-    }).join('');
-  }
-
-  // 記録一覧
-  const recEl = document.getElementById('recordList');
-  if(list.length === 0){
-    recEl.innerHTML = `<div class="empty-msg">記録がありません</div>`;
-  } else {
-    recEl.innerHTML = "";
-    list.forEach(rec => {
-      const card = document.createElement('div');
-      card.className = 'record-card';
-      card.innerHTML = `
-        <div class="record-head">
-          <div class="rmeta"><span class="rsubj ${rec.subject==='英語'?'eng':'kok'}">${rec.subject}</span>${escapeHtml(rec.student || '（名前なし）')} ／ ${rec.date}${rec.label ? ' ／ ' + escapeHtml(rec.label) : ''}</div>
-          <div class="rcount">${rec.items.length}件 ▾</div>
-        </div>
-        <div class="record-body">
-          <ul>
-            ${rec.items.map(it => `<li><span style="color:${categoryColor(rec.subject, it.category)}; font-weight:700;">【${escapeHtml(it.category)}】</span>${escapeHtml(it.item)}${it.note ? '<span class="note-text">📝 次は：'+escapeHtml(it.note)+'</span>' : ''}</li>`).join('')}
-          </ul>
-          <div class="record-actions"><button>この記録を削除</button></div>
-        </div>
-      `;
-      card.querySelector('.record-head').addEventListener('click', () => card.classList.toggle('open'));
-      card.querySelector('.record-actions button').addEventListener('click', () => {
-        if(confirm('この記録を削除しますか？')){
-          records = records.filter(r => r.id !== rec.id);
-          saveRecords(records);
-          renderReview();
-          showToast('削除しました');
+  NS.ocrBusy = true; NS.ocrError = ''; NS.ocrProgress = ''; render();
+  try {
+    const result = await Tesseract.recognize(file, 'eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          NS.ocrProgress = Math.round((m.progress || 0) * 100) + '%';
+          render();
         }
-      });
-      recEl.appendChild(card);
+      },
     });
+    NS.bulkText = (result.data && result.data.text) ? result.data.text.trim() : '';
+    if (!NS.bulkText) NS.ocrError = '文字を検出できませんでした。手動での入力をお試しください。';
+  } catch (e) {
+    NS.ocrError = '読み取りに失敗しました。もう一度お試しください。';
   }
+  NS.ocrBusy = false; NS.ocrProgress = ''; render();
 }
 
-/* ================= トースト ================= */
-let toastTimer = null;
-function showToast(msg){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+function enterNewSet(setId){
+  const s = setId ? DB.sets.find(x => x.id === setId) : null;
+  NS = {
+    id: s ? s.id : null,
+    name: s ? s.name : '',
+    mode: 'text',
+    answerKey: s ? s.answerKey.slice() : Array(TOTAL_Q).fill(null),
+    bulkText: '',
+    bulkResult: null,
+    ocrBusy: false,
+    ocrError: '',
+    ocrProgress: '',
+    geminiGroupsFound: 0,
+    geminiSectionsFound: 0,
+    geminiDisagreements: [],
+    pointsUndetected: [],
+    pointsUndetectedFromOcr: [],
+    voteMode: 'double',
+    groupsText: s ? groupsToText(s.groups) : '',
+    pointsText: s && s.points ? pointsToText(s.points) : '',
+    sectionsText: s && s.sections ? sectionsToText(s.sections) : '',
+    createdAt: s ? s.createdAt : null,
+    photo: { img: null, w: 0, h: 0, corners: [], loadError: '' },
+    comboPhoto: { img: null, w: 0, h: 0, corners: [], loadError: '' },
+    comboState: { busy: false, error: '', progress: '', tapVotes: null, file: null, aiCount: 1, disagreements: [] },
+  };
+  UI.view = 'newSet';
 }
 
-/* ================= 初期化 ================= */
-document.getElementById('recDate').value = todayStr();
-populateStudentDatalist();
-document.getElementById('studentName').value = localStorage.getItem(LS_LAST_STUDENT) || "";
-renderCategoryList();
-updateSaveSummary();
+function renderNewSet(){
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '20px' } });
+
+  wrap.appendChild(stepHeader(1, 'セット名（空欄でも保存できます）'));
+  const nameInput = el('input', { type: 'text', placeholder: '例：第3回小テスト' });
+  nameInput.value = NS.name;
+  // 'input'で常に最新値をNS.nameへ書き込んでおく（render()は呼ばない＝入力中にフォーカスが
+  // 飛ばない）。AI読み取りなど非同期処理が裏で走っていて、確定(change/blur)前に別の理由で
+  // render()が走っても、入力途中の文字が失われないようにするための保険。
+  nameInput.addEventListener('input', e => { NS.name = e.target.value; });
+  nameInput.addEventListener('change', e => { NS.name = e.target.value; });
+  wrap.appendChild(nameInput);
+
+  wrap.appendChild(stepHeader(2, '正解を登録', 'マークシート形式で塗られた模範解答を写真でタップ読み取りするか、印刷された解答表の写真をAI（Gemini/OCR）に読ませるか、自分で入力するかを選びます。'));
+
+  const missingCount = NS.answerKey.filter(a => a === null).length;
+  const currentPoints = parsePointsText(NS.pointsText, TOTAL_Q);
+  const currentGroups = parseGroupsText(NS.groupsText);
+  const previewHead = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' } });
+  previewHead.appendChild(el('div', { style: { fontSize: '11.5px', fontWeight: '700', color: 'var(--inkSoft)' } }, 'プレビュー（登録済みの正解・配点）'));
+  previewHead.appendChild(el('div', { style: { fontSize: '11px', fontWeight: '700', color: missingCount === 0 ? 'var(--green)' : 'var(--red)' } }, `${TOTAL_Q - missingCount} / ${TOTAL_Q} 問`));
+  wrap.appendChild(previewHead);
+  const previewGrid = el('div', { class: 'preview-grid' });
+  NS.answerKey.forEach((a, i) => {
+    const missing = a === null;
+    const gi = groupIndexOfQuestion(currentGroups, i);
+    const disagree = (NS.geminiDisagreements || []).indexOf(i + 1) !== -1;
+    const cell = el('div', { class: 'preview-cell' + (missing ? ' missing' : '') + (gi !== -1 ? ' grouped' : '') + (disagree ? ' disagree' : '') });
+    if (gi !== -1) cell.title = `${currentGroups[gi].order ? '順序通り' : '順不同'}グループ（Q${currentGroups[gi].qs[0]+1}〜Q${currentGroups[gi].qs[currentGroups[gi].qs.length-1]+1}）`;
+    if (disagree) cell.title = (cell.title ? cell.title + ' / ' : '') + '2つのAIの結果が不一致でした';
+    cell.appendChild(el('div', { class: 'pc-q' }, `Q${i + 1}` + (gi !== -1 ? ' ⇄' : '')));
+    cell.appendChild(el('div', { class: 'pc-ans' }, missing ? '?' : CHOICE_LABELS[a]));
+    cell.appendChild(el('div', { class: 'pc-pt' }, `${currentPoints[i]}点`));
+    previewGrid.appendChild(cell);
+  });
+  wrap.appendChild(previewGrid);
+
+  const modeWrap = el('div', { style: { display: 'flex', gap: '6px', margin: '12px 0' } });
+  [['text', '🤖', '解答表をAIで読取'], ['photo', '📷', 'タップのみ'], ['combo', '🤖+📷', 'タップ+AI照合'], ['manual', '✎', '手動で入力']].forEach(([m, ic, lb]) => {
+    const b = el('button', { class: 'modebtn' + (NS.mode === m ? ' active' : ''), onclick: () => { NS.mode = m; render(); } });
+    b.appendChild(el('div', { style: { fontSize: '15px' } }, ic));
+    b.appendChild(el('div', null, lb));
+    modeWrap.appendChild(b);
+  });
+  wrap.appendChild(modeWrap);
+
+  if (NS.mode === 'photo') {
+    wrap.appendChild(renderCornerPhotoReader({
+      answers: NS.answerKey, setAnswers: a => { NS.answerKey = a; render(); },
+      photoState: NS.photo, dotColor: '#D8362B', groups: parseGroupsText(NS.groupsText),
+    }));
+  } else if (NS.mode === 'combo') {
+    wrap.appendChild(renderComboReader({
+      answers: NS.answerKey, setAnswers: a => { NS.answerKey = a; render(); }, mergeAnswers: a => { NS.answerKey = a; render(); },
+      photoState: NS.comboPhoto, comboState: NS.comboState, dotColor: '#D8362B', groups: parseGroupsText(NS.groupsText),
+    }));
+  } else if (NS.mode === 'text') {
+    const tWrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } });
+
+    const geminiWrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', border: `2px solid var(--red)`, borderRadius: '9px', padding: '10px' } });
+    geminiWrap.appendChild(el('div', { style: { fontSize: '12px', fontWeight: '700' } }, '① AIに解答表の写真を読ませる（推奨・高精度）'));
+    geminiWrap.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--inkSoft)', lineHeight: '1.6' } }, '無料のGoogle AI Studioで「Gemini APIキー」を取得し、下に貼り付けてください。貼り付けると、すぐ下のボタンが押せるようになります。丸数字（①②③）や表になった解答表もそのまま読み取れます。キーはこの端末のブラウザにだけ保存されます。'));
+    const keyInput = el('input', { type: 'password', placeholder: 'ここにGemini APIキーを貼り付け' });
+    keyInput.value = getGeminiKey();
+    keyInput.addEventListener('change', e => { setGeminiKey(e.target.value.trim()); render(); });
+    geminiWrap.appendChild(keyInput);
+    const currentKey = getGeminiKey();
+    if (NS.voteMode === undefined) NS.voteMode = 'double';
+    geminiWrap.appendChild(renderVoteModeControls({ get mode(){ return NS.voteMode; }, set mode(v){ NS.voteMode = v; } }));
+    const needsClaude = NS.voteMode === 'triple';
+    const currentClaudeKey = getClaudeKey();
+    if (needsClaude) geminiWrap.appendChild(renderClaudeKeyInput());
+    const ocrReady = currentKey && (!needsClaude || currentClaudeKey);
+    const geminiLabel = el('label', { class: 'btn btn-danger', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: (NS.ocrBusy || !ocrReady) ? 'default' : 'pointer', opacity: (NS.ocrBusy || !ocrReady) ? 0.5 : 1 } },
+      NS.ocrBusy ? `読み取り中…${NS.ocrProgress || ''}` : '🔮 この写真をAIに読ませる');
+    if (!NS.ocrBusy && ocrReady) {
+      const geminiInput = el('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+      geminiInput.addEventListener('change', e => { if (e.target.files[0]) runMultiOcr(e.target.files[0], currentKey, currentClaudeKey, NS.voteMode); });
+      geminiLabel.appendChild(geminiInput);
+    }
+    geminiWrap.appendChild(geminiLabel);
+    if (!currentKey) geminiWrap.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--red)', fontWeight: '700' } }, '↑ まずGemini APIキーを上の欄に貼り付けてください（貼り付けるまでボタンは押せません）。'));
+    else if (needsClaude && !currentClaudeKey) geminiWrap.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--red)', fontWeight: '700' } }, '↑ 3票照合にはClaude APIキーも必要です。'));
+    tWrap.appendChild(geminiWrap);
+
+    const ocrRow = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+    ocrRow.appendChild(el('div', { style: { fontSize: '11px', fontWeight: '700', color: 'var(--inkSoft)' } }, '② キーなしで試す（無料OCR・精度は下がります）'));
+    const ocrLabel = el('label', { class: 'btn btn-secondary', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: NS.ocrBusy ? 'default' : 'pointer', opacity: NS.ocrBusy ? 0.6 : 1 } },
+      NS.ocrBusy ? `読み取り中…${NS.ocrProgress || ''}` : '📷 写真から自動入力（無料OCR・下書き）');
+    if (!NS.ocrBusy) {
+      const ocrInput = el('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+      ocrInput.addEventListener('change', e => { if (e.target.files[0]) runOcr(e.target.files[0]); });
+      ocrLabel.appendChild(ocrInput);
+    }
+    ocrRow.appendChild(ocrLabel);
+    tWrap.appendChild(ocrRow);
+
+    if (NS.ocrError) tWrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--red)' } }, NS.ocrError));
+
+    tWrap.appendChild(el('div', { style: { fontSize: '11.5px', color: 'var(--inkSoft)', lineHeight: '1.7' } }, `問1→問${TOTAL_Q}の順番で、正解をカンマ・スペース・改行区切りで貼り付けてください。（0〜9のみ）`));
+    const ta = el('textarea', { style: { minHeight: '110px' }, placeholder: '例：2,0,1,9,3,...' });
+    ta.value = NS.bulkText;
+    ta.addEventListener('change', e => { NS.bulkText = e.target.value; });
+    tWrap.appendChild(ta);
+    tWrap.appendChild(el('button', { class: 'btn btn-primary', onclick: () => {
+      const basePoints = parsePointsText(NS.pointsText, TOTAL_Q);
+      const result = parseAnswerText(NS.bulkText, NS.answerKey, basePoints);
+      NS.answerKey = result.next;
+      // 正解はあるのに、貼り付けたテキストの中にその問題の配点が一つも
+      // 含まれていなかった問題を一覧にしておく（配点のデフォルトは0点なので、
+      // 実際の値は既に0になっている。ここでは「未入力だから0点扱いにした」ことを
+      // 本人に気づかせるための警告表示専用のリスト）。
+      const undetected = [];
+      for (let i = 0; i < TOTAL_Q; i++) {
+        if (result.next[i] !== null && (!result.pointsSet || !result.pointsSet.has(i + 1))) undetected.push(i + 1);
+      }
+      (NS.pointsUndetectedFromOcr || []).forEach(qn => { if (result.next[qn - 1] !== null && undetected.indexOf(qn) === -1) { undetected.push(qn); result.points[qn - 1] = 0; } });
+      undetected.sort((a, b) => a - b);
+      NS.pointsUndetected = undetected;
+      NS.bulkResult = result;
+      if (result.pointsFound > 0 || undetected.length > 0) NS.pointsText = pointsToText(result.points);
+      render();
+    } }, 'この内容を反映する'));
+    if (NS.pointsUndetected && NS.pointsUndetected.length > 0) {
+      tWrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--red)', lineHeight: '1.6' } },
+        `⚠ 配点が読み取れなかった問題は0点にしています（実際の配点をご確認の上、④で直接直してください）：Q${compressToRanges(NS.pointsUndetected)}`));
+    }
+    if (NS.bulkResult) {
+      const r = NS.bulkResult;
+      const ok = r.unresolved.length === 0 && (r.mode === 'labeled' ? r.count > 0 : r.count === TOTAL_Q);
+      const modeLabel = r.mode === 'labeled' ? '問番号:正解の形式' : '順番どおりの並び';
+      const resultCard = el('div', { class: 'result-card' + (ok ? ' ok' : ' warn') });
+      resultCard.appendChild(el('div', { class: 'result-row' }, `${ok ? '✓' : '△'} ${modeLabel}として認識　正解 ${r.count}件`));
+      if (r.pointsFound > 0) resultCard.appendChild(el('div', { class: 'result-row sub' }, `配点も ${r.pointsFound}件 反映`));
+      if (r.unresolved.length > 0) resultCard.appendChild(el('div', { class: 'result-row warn-text' }, `一致しなかった問題：Q${r.unresolved.join(', Q')}`));
+      tWrap.appendChild(resultCard);
+    }
+    wrap.appendChild(tWrap);
+  } else {
+    const mWrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' } });
+    NS.answerKey.forEach((val, qi) => {
+      const row = el('div', { class: 'qrow' });
+      row.appendChild(el('div', { class: 'qn' }, `Q${qi + 1}`));
+      const pills = el('div', { style: { display: 'flex', gap: '5px', flexWrap: 'wrap' } });
+      CHOICE_LABELS.forEach((lab, ci) => {
+        pills.appendChild(el('button', { class: 'pill small' + (val === ci ? ' active' : ''), onclick: () => { NS.answerKey[qi] = ci; render(); } }, lab));
+      });
+      row.appendChild(pills);
+      mWrap.appendChild(row);
+    });
+    wrap.appendChild(mWrap);
+  }
+
+  wrap.appendChild(stepHeader(3, 'まとめて採点するグループ（順不同・順序通り）', 'Geminiで読み取ると、解答表のハイフンつなぎ（30-31）や※注釈などから自動で検出されます。手入力・修正もできます。「27-28」＝順不同（正解の集合が揃っていればどちらの解答欄に入っていてもOK）。「9-12順」＝順序通り（各解答欄の正解の位置は固定・全部揃って初めて配点）。どちらも「:3」を末尾に付けると合計配点も指定できます（例：「9-12順:3」「27-28:3」）。'));
+  if (NS.geminiGroupsFound > 0) {
+    wrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--green)', fontWeight: '700' } }, `✓ Geminiが${NS.geminiGroupsFound}件のグループを自動検出しました`));
+  }
+  if (NS.geminiSectionsFound > 0) {
+    wrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--green)', fontWeight: '700' } }, `✓ Geminiが${NS.geminiSectionsFound}件の大問区切りを自動検出しました（下の⑤に反映済み）`));
+  }
+  const gInput = el('input', { type: 'text', placeholder: '例：27-28:3, 9-12順:3' });
+  gInput.value = NS.groupsText;
+  gInput.addEventListener('input', e => { NS.groupsText = e.target.value; });
+  gInput.addEventListener('change', e => { NS.groupsText = e.target.value; render(); });
+  wrap.appendChild(gInput);
+  const parsedGroups = parseGroupsText(NS.groupsText);
+  if (NS.groupsText.trim()) {
+    wrap.appendChild(el('div', { style: { fontSize: '11px', color: parsedGroups.length ? 'var(--inkSoft)' : 'var(--red)' } },
+      parsedGroups.length ? 'グループ：' + parsedGroups.map(g => `Q${g.qs[0] + 1}〜Q${g.qs[g.qs.length - 1] + 1}（${g.order ? '順序通り' : '順不同'}）` + (g.points != null ? `（${g.points}点）` : '（配点は合計で自動計算）')).join(' ／ ') : '認識できる範囲がありません。'));
+  }
+
+  const parsedPoints = parsePointsText(NS.pointsText, TOTAL_Q);
+  const groupedIdxSet = new Set(); parsedGroups.forEach(g => g.qs.forEach(qi => groupedIdxSet.add(qi)));
+  const totalPoints = parsedGroups.reduce((s, g) => s + groupPoints(g, parsedPoints), 0) +
+    parsedPoints.reduce((s, p, i) => s + (groupedIdxSet.has(i) ? 0 : p), 0);
+  wrap.appendChild(stepHeader(4, '配点（省略時は0点）', '「2,2,2,3,2,...」のように、問1から順にカンマ区切りで配点を入力してください。入力していない問題・AIが読み取れなかった問題は0点として扱われます（当てずっぽうで加点しないための仕様です）。グループ（順不同・順序通りとも）の問題も、下書き用に個別の点数を入れておけます（グループの合計点を指定していない場合はここから自動計算されます）。'));
+  const pInput = el('input', { type: 'text', placeholder: '例：2,2,2,3,2,...（空欄なら全問1点）' });
+  pInput.value = NS.pointsText;
+  pInput.addEventListener('input', e => { NS.pointsText = e.target.value; });
+  pInput.addEventListener('change', e => { NS.pointsText = e.target.value; render(); });
+  wrap.appendChild(pInput);
+  wrap.appendChild(el('div', { style: { fontSize: '11.5px', fontWeight: '700', color: totalPoints === 100 ? 'var(--green)' : 'var(--red)' } },
+    `合計 ${totalPoints} 点${totalPoints === 100 ? '（100点満点）' : totalPoints > 100 ? `（100点まで、あと${totalPoints - 100}点減らしてください）` : `（100点まで、あと${100 - totalPoints}点足りません）`}`));
+  if (totalPoints !== 100) {
+    // 合計がズレている原因を特定しやすいよう、非グループ問題の合計と
+    // グループごとの内訳（自動計算か、明示的な上書きか）を表示する。グループの
+    // 点数はその場で数字を打ち直せるようにし、自動計算の値をワンクリックで
+    // 使えるボタンも添える（手計算・手打ちの手間を減らすため）。
+    const nonGroupedTotal = parsedPoints.reduce((s, p, i) => s + (groupedIdxSet.has(i) ? 0 : p), 0);
+    const breakdown = el('div', { style: { fontSize: '10.5px', color: 'var(--inkSoft)', lineHeight: '1.7', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '4px' } });
+    breakdown.appendChild(document.createTextNode(`内訳：グループ以外の問題の合計 ${nonGroupedTotal}点`));
+    if (parsedGroups.length === 0) {
+      breakdown.appendChild(el('div', null, '（グループは登録されていません）'));
+    } else {
+      parsedGroups.forEach((g, gi) => {
+        const auto = g.qs.reduce((s, qi) => s + (parsedPoints[qi] || 0), 0);
+        const used = groupPoints(g, parsedPoints);
+        const row = el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' } });
+        row.appendChild(document.createTextNode(`Q${g.qs[0] + 1}〜Q${g.qs[g.qs.length - 1] + 1}（${g.order ? '順序通り' : '順不同'}）：現在`));
+        const numInput = el('input', { type: 'number', value: String(used), style: { width: '48px', fontSize: '10.5px', padding: '1px 4px' } });
+        numInput.addEventListener('change', e => {
+          const v = parseInt(e.target.value, 10);
+          if (!isNaN(v) && v >= 0) {
+            const updated = parsedGroups.map((gg, i) => i === gi ? Object.assign({}, gg, { points: v }) : gg);
+            NS.groupsText = serializeGroups(updated);
+            render();
+          }
+        });
+        row.appendChild(numInput);
+        row.appendChild(document.createTextNode('点'));
+        if (g.points != null && auto !== used) {
+          row.appendChild(document.createTextNode(`（各問の下書き合計は${auto}点）`));
+          const useAutoBtn = el('button', { class: 'presetbtn', style: { fontSize: '10px', padding: '2px 6px' }, onclick: () => {
+            const updated = parsedGroups.map((gg, i) => i === gi ? Object.assign({}, gg, { points: auto }) : gg);
+            NS.groupsText = serializeGroups(updated);
+            render();
+          } }, `${auto}点にする`);
+          row.appendChild(useAutoBtn);
+        } else if (g.points == null) {
+          row.appendChild(document.createTextNode('（各問の下書き点数の合計をそのまま採用中）'));
+        }
+        breakdown.appendChild(row);
+      });
+    }
+    breakdown.appendChild(el('div', { style: { marginTop: '2px' } }, `→ グループ以外(${nonGroupedTotal}) ＋ 各グループの点数 の合計が上の${totalPoints}点です。想定と違う問題番号があれば、その問題の配点か、グループの「開始-終了:配点」の指定（例: 27-30:4）を見直してください。`));
+    wrap.appendChild(breakdown);
+  }
+
+  wrap.appendChild(stepHeader(5, '大問区切り（任意）', '採点結果に大問ごとの小計を表示したい場合、範囲を入力してください。「第1問:1-6」のように名前を付けられます（省略時は「大問1」のように自動採番）。'));
+  const secInput = el('input', { type: 'text', placeholder: '例：第1問:1-6, 第2問:7-14, 第3問:15-24' });
+  secInput.value = NS.sectionsText;
+  secInput.addEventListener('input', e => { NS.sectionsText = e.target.value; });
+  secInput.addEventListener('change', e => { NS.sectionsText = e.target.value; render(); });
+  wrap.appendChild(secInput);
+  const parsedSections = parseSectionsText(NS.sectionsText);
+  if (NS.sectionsText.trim()) {
+    wrap.appendChild(el('div', { style: { fontSize: '11px', color: parsedSections.length ? 'var(--inkSoft)' : 'var(--red)' } },
+      parsedSections.length ? parsedSections.map(s => `${s.label}(Q${s.qs[0]+1}〜Q${s.qs[s.qs.length-1]+1})`).join(' ／ ') : '認識できる範囲がありません。'));
+  }
+  if (parsedSections.length > 0) {
+    const { perSection, uncovered } = computeSectionPointTotals(parsedSections, currentGroups, currentPoints);
+    const sectionSum = perSection.reduce((s, p) => s + p.total, 0);
+    const secBox = el('div', { style: { fontSize: '10.5px', color: 'var(--inkSoft)', lineHeight: '1.8', marginTop: '6px', border: '1px solid var(--line)', borderRadius: '8px', padding: '8px 10px' } });
+    secBox.appendChild(el('div', { style: { fontWeight: '700', color: 'var(--ink)' } }, '大問ごとの配点（自動計算・④の配点欄から集計）'));
+    perSection.forEach(p => secBox.appendChild(el('div', null, `${p.label}（Q${p.qs[0]+1}〜Q${p.qs[p.qs.length-1]+1}）：${p.total}点`)));
+    const matchesTotal = sectionSum === totalPoints;
+    secBox.appendChild(el('div', { style: { fontWeight: '700', color: matchesTotal ? 'var(--green)' : 'var(--red)', marginTop: '2px' } },
+      `大問の合計：${sectionSum}点${matchesTotal ? '（④の合計と一致）' : `（④の合計 ${totalPoints}点と不一致）`}`));
+    if (uncovered.length > 0) {
+      secBox.appendChild(el('div', { style: { color: 'var(--red)' } }, `どの大問にも含まれていない問題：Q${uncovered.join(', Q')}`));
+    }
+    wrap.appendChild(secBox);
+  }
+
+  const footer = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' } });
+  if (missingCount > 0) {
+    footer.appendChild(el('div', { style: { fontSize: '11.5px', color: 'var(--red)', textAlign: 'center' } }, `正解が未入力の問題が${missingCount}問あります。保存はできます（後で編集から追記できます）。`));
+  }
+  const btnRow = el('div', { style: { display: 'flex', gap: '8px' } });
+  btnRow.appendChild(el('button', { class: 'btn btn-secondary', style: { flex: '1' }, onclick: () => { UI.view = 'home'; render(); } }, 'キャンセル'));
+  // セット名が空でも保存をブロックしない（「セット名を入力してください」で
+  // 詰まる問題が繰り返し起きていたため、空の場合は自動で仮の名前を付けて進める）。
+  btnRow.appendChild(el('button', { class: 'btn', style: { flex: '2', background: 'var(--ink)', color: 'var(--paper)', borderRadius: '10px', padding: '12px 0', fontWeight: '700', fontSize: '13.5px' }, onclick: () => {
+    const nameTrim = NS.name.trim() || `無題のセット（${new Date().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}）`;
+    const s = { id: NS.id || uid(), name: nameTrim, answerKey: NS.answerKey, groups: parseGroupsText(NS.groupsText), points: parsePointsText(NS.pointsText, TOTAL_Q), sections: parseSectionsText(NS.sectionsText), createdAt: NS.createdAt || Date.now() };
+    DB.sets = NS.id ? DB.sets.map(x => x.id === NS.id ? s : x) : [...DB.sets, s];
+    saveSets();
+    UI.view = 'home'; render();
+  } }, NS.id ? '更新を保存' : 'セットを保存'));
+  footer.appendChild(btnRow);
+  wrap.appendChild(footer);
+
+  return wrap;
+}
+
+// ============================================================
+// GRADE
+// ============================================================
+function ensureGR(){
+  if (!GR) GR = {
+    setId: DB.sets[0] ? DB.sets[0].id : null, studentName: '', answers: [], graded: null,
+    readMode: 'corner',
+    photo: { img: null, w: 0, h: 0, corners: [], loadError: '' },
+    comboPhoto: { img: null, w: 0, h: 0, corners: [], loadError: '' },
+    comboState: { busy: false, error: '', progress: '', tapVotes: null, file: null, aiCount: 1, disagreements: [] },
+    geminiState: { busy: false, error: '', progress: '' },
+    draftDecided: null, // 'continue' | 'fresh' | null（現在のセット＋生徒名の組み合わせについて判断済みか）
+    targetSections: [], // 空配列 = 全体を採点、数値の配列 = その大問（複数可）だけを対象に読み取る
+    lockedSections: [], // 「確定」した大問（このセット・この生徒の下書きに保存される）
+    overwriteLocked: false, // ロック済みの大問を今回の読み取りで上書きしてよいか
+    rawLastDetection: null, // 直近の「4隅タップ」で得られた読み取り結果（大問の絞り込み前・全55問分）。
+                            // 対象の大問を変えるだけで、この結果を再適用できるようにするためのキャッシュ。
+  };
+}
+function renderGrade(){
+  if (DB.sets.length === 0) return el('div', { class: 'empty' }, '採点するにはまず正解セットを登録してください（ホーム画面の「新しい正解セットを登録」）。');
+  ensureGR();
+  if (!GR.setId || !DB.sets.find(s => s.id === GR.setId)) GR.setId = DB.sets[0].id;
+  const set = DB.sets.find(s => s.id === GR.setId);
+
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '18px' } });
+
+  wrap.appendChild(stepHeader(1, '正解セットを選ぶ'));
+  const sel = el('select');
+  DB.sets.forEach(s => {
+    const opt = el('option', { value: s.id }, s.name);
+    if (s.id === GR.setId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', e => {
+    GR.setId = e.target.value; GR.answers = []; GR.graded = null; GR.draftDecided = null; GR.targetSections = []; GR.lockedSections = []; GR.overwriteLocked = false; GR.rawLastDetection = null;
+    GR.photo = { img: null, w: 0, h: 0, corners: [], loadError: '' };
+    GR.comboPhoto = { img: null, w: 0, h: 0, corners: [], loadError: '' };
+    GR.comboState = { busy: false, error: '', progress: '', tapVotes: null, file: null, aiCount: 1, disagreements: [] };
+    GR.geminiState = { busy: false, error: '', progress: '' };
+    render();
+  });
+  wrap.appendChild(sel);
+
+  wrap.appendChild(stepHeader(2, '生徒の名前を入力'));
+  const nameInput = el('input', { type: 'text', placeholder: '例：山田太郎', list: 'msg-names' });
+  nameInput.value = GR.studentName;
+  nameInput.addEventListener('input', e => { GR.studentName = e.target.value; });
+  nameInput.addEventListener('change', e => {
+    GR.studentName = e.target.value;
+    // 生徒名を変えたら、それまでの生徒の読み取り済みデータを引きずらないよう
+    // 作業中のデータを一旦リセットする（続きから採点したい場合は、この後に出る
+    // 「続きから採点する」ボタンで明示的にそのドラフトを読み込む）。
+    GR.answers = []; GR.graded = null;
+    GR.draftDecided = null; GR.lockedSections = []; GR.targetSections = []; GR.overwriteLocked = false; GR.rawLastDetection = null;
+    GR.photo = { img: null, w: 0, h: 0, corners: [], loadError: '' };
+    GR.comboPhoto = { img: null, w: 0, h: 0, corners: [], loadError: '' };
+    GR.geminiState = { busy: false, error: '', progress: '' };
+    render();
+  });
+  wrap.appendChild(nameInput);
+  const dl = el('datalist', { id: 'msg-names' });
+  uniqueNames().forEach(n => dl.appendChild(el('option', { value: n })));
+  wrap.appendChild(dl);
+
+  const trimmedName = GR.studentName.trim();
+  const existingDraft = trimmedName ? findDraft(GR.setId, trimmedName) : null;
+  if (existingDraft && GR.draftDecided === null) {
+    const answeredCount = existingDraft.answers.filter(a => a !== null && a !== undefined).length;
+    const box = el('div', { class: 'notice-blue' });
+    box.appendChild(document.createTextNode(`「${trimmedName}」さんは、このセットで前回までの途中経過があります（${answeredCount}/${TOTAL_Q}問まで採点済み）。`));
+    const btnRow2 = el('div', { style: { display: 'flex', gap: '8px', marginTop: '8px' } });
+    btnRow2.appendChild(el('button', { class: 'btn btn-secondary', style: { flex: '1' }, onclick: () => {
+      GR.answers = existingDraft.answers.slice(); GR.lockedSections = (existingDraft.lockedSections || []).slice(); GR.graded = null; GR.draftDecided = 'continue'; render();
+    } }, '続きから採点する'));
+    btnRow2.appendChild(el('button', { class: 'btn btn-secondary', style: { flex: '1' }, onclick: () => {
+      GR.draftDecided = 'fresh'; render();
+    } }, '最初からやり直す'));
+    box.appendChild(btnRow2);
+    wrap.appendChild(box);
+  }
+
+  wrap.appendChild(stepHeader(3, '解答用紙を読み取る', 'AIで読み取るか、4隅の黒いマークをタップする方式か、その両方を組み合わせて照合するかを選べます。前回までの途中経過を読み込んでいる場合、今回新しく判定できた問題だけが追加され、以前の分は保持されます。'));
+
+  const sections = set.sections || [];
+  if (sections.length > 0) {
+    const secWrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' } });
+    secWrap.appendChild(el('div', { style: { fontSize: '11px', fontWeight: '700', color: 'var(--inkSoft)' } }, '採点する範囲（大問・複数選択可）'));
+    const pillRow = el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } });
+    pillRow.appendChild(el('button', { class: 'presetbtn' + (GR.targetSections.length === 0 ? ' active' : ''), onclick: () => { GR.targetSections = []; reapplyIfCached(); } }, '全体'));
+    sections.forEach((sec, si) => {
+      const active = GR.targetSections.indexOf(si) !== -1;
+      const locked = GR.lockedSections.indexOf(si) !== -1;
+      pillRow.appendChild(el('button', { class: 'presetbtn' + (active ? ' active' : ''), style: locked ? { borderColor: 'var(--green)' } : null, onclick: () => {
+        GR.targetSections = active ? GR.targetSections.filter(x => x !== si) : GR.targetSections.concat([si]);
+        reapplyIfCached();
+      } }, (locked ? '🔒 ' : '') + sec.label));
+    });
+    secWrap.appendChild(pillRow);
+    if (GR.targetSections.length > 0) {
+      const chosenLabel = GR.targetSections.map(si => sections[si].label).join('・');
+      secWrap.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--inkSoft)' } }, `今回読み取った結果のうち、${chosenLabel}以外の問題は反映されません（他の大問を別のタイミングで採点しても、続きから採点の仕組みで自動的に合算されます）。`));
+    }
+    // ライブ進捗：これまでにどの大問がどこまで採点済みか（下書き含む現在のGR.answersを基準に表示）
+    if (GR.answers.length === TOTAL_Q) {
+      const subtotals = computeSectionSubtotals(set, GR.answers);
+      const progWrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '10.5px', color: 'var(--inkSoft)', marginTop: '4px' } });
+      let anyMissingKeyInSelected = false;
+      sections.forEach((sec, si) => {
+        const answeredCount = sec.qs.filter(qi => GR.answers[qi] !== null && GR.answers[qi] !== undefined).length;
+        const sub = subtotals[si];
+        const done = answeredCount === sec.qs.length;
+        const perfect = done && sub.total > 0 && sub.score === sub.total; // 読み取り完了 かつ 満点の時だけ「正解」扱い
+        const locked = GR.lockedSections.indexOf(si) !== -1;
+        const missingKeyCount = sec.qs.filter(qi => set.answerKey[qi] === null).length;
+        if (missingKeyCount > 0 && GR.targetSections.indexOf(si) !== -1) anyMissingKeyInSelected = true;
+        // 記号：✓(緑)=読み取り完了かつ満点／△(オレンジ)=読み取り完了だが誤答あり／・(灰)=未完了
+        const mark = locked ? '🔒' : !done ? '・' : (perfect ? '✓' : '△');
+        const markColor = !done ? 'var(--inkSoft)' : (perfect ? 'var(--green)' : '#C98A00');
+        progWrap.appendChild(el('div', { style: { color: markColor } },
+          `${mark} ${sec.label}：${answeredCount}/${sec.qs.length}問${done ? `（現在 ${sub.score}/${sub.total}点）` : ''}${locked ? '（確定済み）' : ''}${missingKeyCount > 0 ? `　※${missingKeyCount}問は正解が未登録（採点対象外）` : ''}`));
+      });
+      secWrap.appendChild(progWrap);
+      if (anyMissingKeyInSelected) {
+        secWrap.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--red)', fontWeight: '700', marginTop: '2px' } },
+          '⚠ 選択中の大問には正解が未登録の問題が含まれています。マーク（赤丸）は正しく読み取れていても、正解が登録されるまではその問題は採点対象になりません。①の正解セット編集で登録してください。'));
+      }
+    }
+    // 大問の確定（ロック）：一区切りついた大問を「確定」しておくと、以後の読み取りで
+    // うっかり上書きされなくなる（続きから採点する下書きにも保存される）。
+    if (GR.targetSections.length > 0) {
+      const lockRow = el('div', { style: { display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap' } });
+      const allLocked = GR.targetSections.every(si => GR.lockedSections.indexOf(si) !== -1);
+      lockRow.appendChild(el('button', { class: 'btn btn-secondary', style: { fontSize: '11px', padding: '5px 10px' }, onclick: () => {
+        if (allLocked) GR.targetSections.forEach(si => { GR.lockedSections = GR.lockedSections.filter(x => x !== si); });
+        else GR.targetSections.forEach(si => { if (GR.lockedSections.indexOf(si) === -1) GR.lockedSections = GR.lockedSections.concat([si]); });
+        render();
+      } }, allLocked ? '🔓 選択中の大問のロックを解除' : '🔒 選択中の大問を確定してロック'));
+      lockRow.appendChild(el('div', { style: { fontSize: '10px', color: 'var(--inkSoft)', alignSelf: 'center' } }, 'ロックした大問は、うっかり別の読み取りで上書きされなくなります'));
+      secWrap.appendChild(lockRow);
+    }
+    if (GR.lockedSections.length > 0) {
+      const owRow = el('label', { style: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', color: 'var(--inkSoft)', cursor: 'pointer', marginTop: '2px' } });
+      const owCheckbox = el('input', { type: 'checkbox' });
+      owCheckbox.checked = GR.overwriteLocked;
+      owCheckbox.addEventListener('change', e => { GR.overwriteLocked = e.target.checked; render(); });
+      owRow.appendChild(owCheckbox);
+      owRow.appendChild(document.createTextNode('ロック済みの大問も、今回の読み取りで上書きする（訂正したい時だけチェック）'));
+      secWrap.appendChild(owRow);
+    }
+    wrap.appendChild(secWrap);
+  }
+
+  const modeWrap = el('div', { style: { display: 'flex', gap: '6px', marginBottom: '10px' } });
+  [['gemini', '🤖', 'AIで読み取る'], ['corner', '📷', 'タップのみ'], ['combo', '🤖+📷', 'タップ+AI照合（最高精度）']].forEach(([m, ic, lb]) => {
+    const b = el('button', { class: 'modebtn' + (GR.readMode === m ? ' active' : ''), onclick: () => { GR.readMode = m; render(); } });
+    b.appendChild(el('div', { style: { fontSize: '15px' } }, ic));
+    b.appendChild(el('div', null, lb));
+    modeWrap.appendChild(b);
+  });
+  wrap.appendChild(modeWrap);
+
+  const overwriteAnswers = a => { GR.answers = a; GR.graded = null; render(); };
+  // scoping は常に「呼ばれた瞬間」の GR.targetSections / GR.lockedSections / GR.overwriteLocked を
+  // 見て計算する（render時点のスナップショットにしてしまうと、大問選択を変えた直後に
+  // reapplyIfCached() から呼んだ時に古い選択のままになってしまうため）。
+  function computeTargetQsSet(){
+    if (GR.targetSections.length === 0) return null;
+    const s = new Set();
+    GR.targetSections.forEach(si => { if (sections[si]) sections[si].qs.forEach(qi => s.add(qi)); });
+    return s;
+  }
+  function computeLockedQsSet(){
+    if (GR.overwriteLocked || GR.lockedSections.length === 0) return null;
+    const s = new Set();
+    GR.lockedSections.forEach(si => { if (sections[si]) sections[si].qs.forEach(qi => s.add(qi)); });
+    return s;
+  }
+  // 大問を選んでいる間は、写真上の赤丸（判定結果の表示）もその大問の問題だけに
+  // 切り替える。選択が「全体」なら null にして全問表示に戻す。
+  const highlightQsForTargetSections = computeTargetQsSet();
+  const mergeAnswers = incoming => {
+    GR.rawLastDetection = incoming; // 大問を切り替えるだけで再適用できるようキャッシュしておく
+    const targetQsSet = computeTargetQsSet();
+    const lockedQsSet = computeLockedQsSet();
+    let scoped = targetQsSet ? incoming.map((v, i) => targetQsSet.has(i) ? v : null) : incoming;
+    if (lockedQsSet) scoped = scoped.map((v, i) => lockedQsSet.has(i) ? null : v);
+    GR.answers = mergeDetectedAnswers(GR.answers, scoped); GR.graded = null; render();
+  };
+  // 大問（採点する範囲）の選択を変えた時、直前に撮った写真の読み取り結果が既にあれば、
+  // 4隅を撮り直さなくてもその結果を今選んでいる大問に自動で再適用する。これが無いと、
+  // 「タップした後で範囲だけ変えても反映されない」という状態になってしまう。
+  const reapplyIfCached = () => { if (GR.rawLastDetection) mergeAnswers(GR.rawLastDetection); else render(); };
+
+  if (GR.readMode === 'gemini') {
+    wrap.appendChild(renderGeminiMarkReader({
+      answers: GR.answers, setAnswers: overwriteAnswers, mergeAnswers,
+      state: GR.geminiState, groups: set.groups || [],
+      highlightQs: highlightQsForTargetSections,
+    }));
+  } else if (GR.readMode === 'combo') {
+    wrap.appendChild(renderComboReader({
+      answers: GR.answers, setAnswers: overwriteAnswers, mergeAnswers,
+      photoState: GR.comboPhoto, comboState: GR.comboState, dotColor: '#D8362B', groups: set.groups || [],
+      highlightQs: highlightQsForTargetSections,
+      onReset: () => { GR.rawLastDetection = null; },
+    }));
+  } else {
+    wrap.appendChild(renderCornerPhotoReader({
+      answers: GR.answers, setAnswers: overwriteAnswers, mergeAnswers,
+      photoState: GR.photo, dotColor: '#D8362B', groups: set.groups || [],
+      highlightQs: highlightQsForTargetSections,
+      onReset: () => { GR.rawLastDetection = null; },
+    }));
+  }
+
+  if (GR.answers.length > 0 && !GR.graded) {
+    const actionRow = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } });
+    actionRow.appendChild(el('button', { class: 'btn btn-danger', onclick: () => { GR.graded = scoreSet(set, GR.answers); render(); } }, '採点する'));
+    const answeredSoFar = GR.answers.filter(a => a !== null && a !== undefined).length;
+    if (answeredSoFar > 0 && answeredSoFar < TOTAL_Q) {
+      const canDraftSave = !!trimmedName;
+      actionRow.appendChild(el('button', { class: 'btn btn-secondary', style: { opacity: canDraftSave ? 1 : 0.5 }, onclick: () => {
+        if (!canDraftSave) { alert('続きから採点できるようにするには、先に生徒名を入力してください。'); return; }
+        upsertDraft(GR.setId, trimmedName, GR.answers, GR.lockedSections);
+        alert(`ここまでの${answeredSoFar}/${TOTAL_Q}問を保存しました。同じ生徒名・セットを選ぶと続きから採点できます。`);
+        GR.studentName = ''; GR.answers = []; GR.draftDecided = null; GR.lockedSections = []; GR.targetSections = []; GR.overwriteLocked = false; GR.rawLastDetection = null;
+        GR.photo = { img: null, w: 0, h: 0, corners: [], loadError: '' };
+        GR.geminiState = { busy: false, error: '', progress: '' };
+        render();
+      } }, `🕗 ここまで（${answeredSoFar}/${TOTAL_Q}問）を保存して後で続きから採点`));
+    }
+    wrap.appendChild(actionRow);
+  }
+  if (GR.graded) {
+    const headerRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' } });
+    headerRow.appendChild(stepHeader(4, '結果を確認して保存'));
+    headerRow.appendChild(el('button', { class: 'btn btn-secondary', style: { fontSize: '11px', padding: '6px 10px', whiteSpace: 'nowrap' }, onclick: () => {
+      GR.graded = scoreSet(set, GR.answers); render();
+    } }, '🔄 採点し直す'));
+    wrap.appendChild(headerRow);
+    wrap.appendChild(renderGradedResult(GR.graded, set));
+  }
+  return wrap;
+}
+function renderFlagsGrid(flags, earnedPoints){
+  const grid = el('div', { class: 'flags-grid', style: { width: '100%', alignSelf: 'stretch' } });
+  flags.forEach((f, i) => {
+    const cell = el('div', { class: 'flags-cell ' + f });
+    cell.appendChild(el('div', { class: 'fc-q' }, `${i + 1}`));
+    cell.appendChild(el('div', { class: 'fc-sym' }, f === 'ok' ? '✓' : f === 'ng' ? '✕' : '―'));
+    if (earnedPoints && f !== 'skip') cell.appendChild(el('div', { style: { fontSize: '7.5px', color: 'var(--inkFaint)', fontFamily: 'ui-monospace,monospace' } }, `${earnedPoints[i]}pt`));
+    grid.appendChild(cell);
+  });
+  return grid;
+}
+
+function renderGradedResult(graded, set){
+  const pct = graded.total > 0 ? Math.round((graded.score / graded.total) * 100) : 0;
+  const box = el('div', { class: 'card', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '18px 14px' } });
+  const scoreWrap = el('div', { style: { textAlign: 'center', fontFamily: 'ui-monospace,monospace' } });
+  const big = el('div', { style: { fontSize: '26px', fontWeight: '700' } }, `${graded.score}`);
+  big.appendChild(el('span', { style: { fontSize: '14px', color: 'var(--inkSoft)' } }, `/${graded.total}`));
+  scoreWrap.appendChild(big);
+  scoreWrap.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--inkSoft)', marginTop: '2px' } }, `${pct}点`));
+  box.appendChild(scoreWrap);
+
+  box.appendChild(renderFlagsGrid(graded.flags, computeEarnedPossible(set, GR.answers).earned));
+  if (graded.flags.some(f => f === 'skip')) box.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--inkSoft)' } }, 'グレー（―）は正解が未登録の問題で、採点対象外です。'));
+
+  const subtotals = computeSectionSubtotals(set, GR.answers);
+  if (subtotals.length > 0) {
+    const subWrap = el('div', { class: 'subtotal-box' });
+    subWrap.appendChild(el('div', { style: { fontSize: '11px', fontWeight: '700', color: 'var(--inkSoft)', marginBottom: '4px' } }, '大問別の得点'));
+    subtotals.forEach(st => {
+      const row = el('div', { class: 'subtotal-row' });
+      row.appendChild(el('div', { style: { fontSize: '12px', fontWeight: '600' } }, st.label));
+      row.appendChild(el('div', { style: { fontSize: '12px', fontFamily: 'ui-monospace,monospace', fontWeight: '700' } }, `${st.score} / ${st.total}`));
+      subWrap.appendChild(row);
+    });
+    box.appendChild(subWrap);
+  }
+
+  const canSave = !!GR.studentName.trim();
+  box.appendChild(el('button', { class: 'btn', style: { width: '100%', background: canSave ? 'var(--ink)' : 'var(--inkFaint)', color: 'var(--paper)', borderRadius: '10px', padding: '12px 0', fontWeight: '700', fontSize: '13.5px' }, onclick: () => {
+    if (!canSave) return;
+    const nameTrim = GR.studentName.trim();
+    DB.records = [{ id: uid(), setId: set.id, setName: set.name, studentName: nameTrim, date: Date.now(), score: graded.score, total: graded.total, answers: GR.answers, answerKey: set.answerKey, flags: graded.flags, points: set.points, groups: set.groups, sections: set.sections }, ...DB.records];
+    saveRecords();
+    deleteDraft(set.id, nameTrim); // 続き採点用の下書きがあれば、確定保存と同時に消しておく
+    GR.answers = []; GR.graded = null; GR.studentName = ''; GR.draftDecided = null; GR.lockedSections = []; GR.targetSections = []; GR.overwriteLocked = false; GR.rawLastDetection = null; GR.photo = { img: null, w: 0, h: 0, corners: [], loadError: '' };
+    render();
+  } }, canSave ? '💾 この結果を保存' : '①で生徒名を入力してください'));
+  return box;
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHistory(){
+  if (DB.records.length === 0) return el('div', { class: 'empty' }, '採点記録はまだありません。「採点する」から読み取ると、ここに生徒ごとに記録されます。');
+  const byName = {};
+  DB.records.forEach(r => { (byName[r.studentName] = byName[r.studentName] || []).push(r); });
+
+  // 生徒ごとの平均得点率（並べ替え用）
+  const avgPctOf = name => {
+    const recs = byName[name];
+    const pcts = recs.map(r => r.total > 0 ? r.score / r.total : 0);
+    return pcts.reduce((a, b) => a + b, 0) / pcts.length;
+  };
+  let names = Object.keys(byName);
+  if (HISTORY_SORT.mode === 'name') names.sort((a, b) => a.localeCompare(b, 'ja'));
+  else if (HISTORY_SORT.mode === 'score_desc') names.sort((a, b) => avgPctOf(b) - avgPctOf(a));
+  else if (HISTORY_SORT.mode === 'score_asc') names.sort((a, b) => avgPctOf(a) - avgPctOf(b));
+  else names.sort((a, b) => Math.max(...byName[b].map(r => r.date)) - Math.max(...byName[a].map(r => r.date)));
+
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } });
+
+  // 全体の簡単な集計（人数・平均点）
+  const allPct = Object.keys(byName).map(n => avgPctOf(n) * 100);
+  const overallAvg = allPct.length ? Math.round(allPct.reduce((a, b) => a + b, 0) / allPct.length) : 0;
+  const statRow = el('div', { style: { display: 'flex', gap: '8px', marginBottom: '2px' } });
+  statRow.appendChild(el('div', { class: 'stat' }, [el('div', { class: 'v' }, `${Object.keys(byName).length}`), el('div', { class: 'l' }, '生徒数')]));
+  statRow.appendChild(el('div', { class: 'stat' }, [el('div', { class: 'v' }, `${DB.records.length}`), el('div', { class: 'l' }, '採点件数')]));
+  statRow.appendChild(el('div', { class: 'stat' }, [el('div', { class: 'v' }, `${overallAvg}`), el('div', { class: 'l' }, '平均点(%)')]));
+  wrap.appendChild(statRow);
+
+  const sortRow = el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } });
+  [['recent', '更新順'], ['name', '名前順'], ['score_desc', '平均点が高い順'], ['score_asc', '平均点が低い順']].forEach(([m, lb]) => {
+    sortRow.appendChild(el('button', { class: 'presetbtn' + (HISTORY_SORT.mode === m ? ' active' : ''), onclick: () => { HISTORY_SORT.mode = m; render(); } }, lb));
+  });
+  wrap.appendChild(sortRow);
+
+  names.forEach(name => {
+    const recs = byName[name].sort((a, b) => b.date - a.date);
+    const open = HISTORY_OPEN.name === name;
+    const pcts = recs.map(r => r.total > 0 ? Math.round((r.score / r.total) * 100) : 0);
+    const bestPct = Math.max(...pcts);
+    const worstPct = Math.min(...pcts);
+    const uniqueSets = new Set(recs.map(r => r.setName)).size;
+    const latestDate = new Date(recs[0].date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+    const cardWrap = el('div', { class: 'card', style: { padding: '0', overflow: 'hidden' } });
+    const head = el('button', { class: 'btn', style: { width: '100%', background: 'none', padding: '11px 13px', display: 'flex', alignItems: 'center', gap: '9px' }, onclick: () => { HISTORY_OPEN.name = open ? null : name; render(); } });
+    head.appendChild(el('div', null, '👤'));
+    const infoCol = el('div', { style: { flex: '1', textAlign: 'left' } });
+    infoCol.appendChild(el('div', { style: { fontWeight: '700', fontSize: '13.5px' } }, name));
+    const sub = el('div', { style: { fontSize: '10px', color: 'var(--inkSoft)', marginTop: '1px', display: 'flex', gap: '6px', flexWrap: 'wrap' } });
+    sub.appendChild(el('span', null, `${recs.length}件`));
+    sub.appendChild(el('span', null, `平均${Math.round(avgPctOf(name) * 100)}%`));
+    if (recs.length > 1) sub.appendChild(el('span', null, `最高${bestPct}%・最低${worstPct}%`));
+    if (uniqueSets > 1) sub.appendChild(el('span', null, `${uniqueSets}種のセット`));
+    sub.appendChild(el('span', null, `最終${latestDate}`));
+    infoCol.appendChild(sub);
+    head.appendChild(infoCol);
+    head.appendChild(el('div', null, open ? '▾' : '▸'));
+    cardWrap.appendChild(head);
+    if (open) {
+      const listWrap = el('div', { style: { borderTop: '1px solid var(--line)' } });
+      recs.forEach(r => {
+        const isOpen = HISTORY_OPEN.recId === r.id;
+        const rowWrap = el('div', { style: { borderBottom: '1px solid var(--paperDeep)' } });
+        const rowHead = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 13px' } });
+        const btn = el('button', { class: 'btn', style: { flex: '1', textAlign: 'left', background: 'none', padding: '0' }, onclick: () => { HISTORY_OPEN.recId = isOpen ? null : r.id; render(); } });
+        btn.appendChild(el('div', { style: { fontSize: '12.5px', fontWeight: '600' } }, r.setName));
+        btn.appendChild(el('div', { style: { fontSize: '10.5px', color: 'var(--inkSoft)' } }, new Date(r.date).toLocaleDateString('ja-JP')));
+        rowHead.appendChild(btn);
+        rowHead.appendChild(el('div', { style: { fontFamily: 'ui-monospace,monospace', fontSize: '12.5px', fontWeight: '700', color: r.score === r.total ? 'var(--green)' : 'var(--ink)' } }, `${r.score}/${r.total}`));
+        rowHead.appendChild(el('button', { class: 'iconbtn', onclick: () => { DB.records = DB.records.filter(x => x.id !== r.id); saveRecords(); render(); } }, '🗑'));
+        rowWrap.appendChild(rowHead);
+        if (isOpen) {
+          const flags = r.flags || r.answerKey.map((correct, i) => correct === null ? 'skip' : (r.answers[i] === correct ? 'ok' : 'ng'));
+          const { earned, possible } = computeEarnedPossible({ answerKey: r.answerKey, points: r.points || Array(TOTAL_Q).fill(0), groups: r.groups || [] }, r.answers);
+          const detail = el('div', { style: { padding: '0 13px 11px' } });
+          detail.appendChild(renderFlagsGrid(flags, earned));
+          rowWrap.appendChild(detail);
+          if (r.sections && r.sections.length > 0) {
+            const subWrap = el('div', { class: 'subtotal-box', style: { margin: '0 13px 11px' } });
+            r.sections.forEach(sec => {
+              const score = sec.qs.reduce((s, qi) => s + earned[qi], 0);
+              const total = sec.qs.reduce((s, qi) => s + possible[qi], 0);
+              const row = el('div', { class: 'subtotal-row' });
+              row.appendChild(el('div', { style: { fontSize: '11.5px', fontWeight: '600' } }, sec.label));
+              row.appendChild(el('div', { style: { fontSize: '11.5px', fontFamily: 'ui-monospace,monospace', fontWeight: '700' } }, `${score} / ${total}`));
+              subWrap.appendChild(row);
+            });
+            rowWrap.appendChild(subWrap);
+          }
+        }
+        listWrap.appendChild(rowWrap);
+      });
+      cardWrap.appendChild(listWrap);
+    }
+    wrap.appendChild(cardWrap);
+  });
+  return wrap;
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+loadDB();
+render();
+
 </script>
 </body>
 </html>
